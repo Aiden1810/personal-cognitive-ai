@@ -127,7 +127,12 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
       mutate((state) => {
         const previous = state.cases.find((item) => item.id === record.id);
         if (previous && JSON.stringify(previous) !== JSON.stringify(record)) {
-          invalidateEvidence(state, record.id, record.status === "rejected");
+          invalidateEvidence(
+            state,
+            record.id,
+            record.status === "rejected" ||
+              previous.scenario !== record.scenario,
+          );
         }
         upsert(state.cases, record);
       });
@@ -182,10 +187,18 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
             JSON.stringify(previous.supportCaseIds) !==
               JSON.stringify(record.supportCaseIds) ||
             JSON.stringify(previous.counterCaseIds) !==
-              JSON.stringify(record.counterCaseIds));
+              JSON.stringify(record.counterCaseIds) ||
+            JSON.stringify(previous.caveats) !==
+              JSON.stringify(record.caveats) ||
+            previous.userNote !== record.userNote);
         const next = {
           ...record,
-          status: changed ? ("pending" as const) : record.status,
+          status:
+            record.status === "rejected"
+              ? ("rejected" as const)
+              : changed
+                ? ("pending" as const)
+                : record.status,
         };
         if (next.status !== "confirmed") deactivateGoals(state, next.id);
         upsert(state.patterns, next);

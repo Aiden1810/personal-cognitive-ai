@@ -90,6 +90,53 @@ test("a goal cannot activate against an unconfirmed pattern", () => {
   );
 });
 
+test("editing pattern caveats or user notes requires reconfirmation", () => {
+  for (const change of [
+    { caveats: ["新增限制条件"] },
+    { userNote: "用户补充说明" },
+  ]) {
+    const store = createDemoStore(memoryStorage());
+    const initial = store.getState();
+    store.savePattern({ ...initial.patterns[0], status: "confirmed" });
+    store.saveGoal({
+      ...initial.goals[0],
+      status: "active",
+      patternId: "sample-pattern-1",
+    });
+    store.savePattern({ ...store.getState().patterns[0], ...change });
+    assert.equal(store.getState().patterns[0].status, "pending");
+    assert.equal(store.getState().goals[0].status, "inactive");
+  }
+});
+
+test("moving a case to another scenario removes old pattern references", () => {
+  const store = createDemoStore(memoryStorage());
+  const initial = store.getState();
+  store.savePattern({ ...initial.patterns[0], status: "confirmed" });
+  store.saveGoal({
+    ...initial.goals[0],
+    status: "active",
+    patternId: "sample-pattern-1",
+  });
+  store.saveCase({ ...initial.cases[0], scenario: "another-scenario" });
+  const after = store.getState();
+  assert.deepEqual(after.patterns[0].supportCaseIds, []);
+  assert.equal(after.patterns[0].status, "pending");
+  assert.equal(after.goals[0].status, "inactive");
+  assert.doesNotThrow(() => store.savePattern(after.patterns[0]));
+});
+
+test("explicit rejection stays rejected even when pattern text is edited", () => {
+  const store = createDemoStore(memoryStorage());
+  store.savePattern({ ...store.getState().patterns[0], status: "confirmed" });
+  store.savePattern({
+    ...store.getState().patterns[0],
+    description: "用户纠正了观察",
+    status: "rejected",
+  });
+  assert.equal(store.getState().patterns[0].status, "rejected");
+});
+
 test("unknown or cross-scenario evidence is rejected", () => {
   const store = createDemoStore(memoryStorage());
   assert.throws(
