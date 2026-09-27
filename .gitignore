@@ -5,6 +5,7 @@ out/
 dist/
 coverage/
 *.tsbuildinfo
+next-env.d.ts
 
 # Local configuration and credentials
 .env
@@ -23,3 +24,5 @@ Thumbs.db
 .codex/
 .agents/
 private-data/
+.playwright-cli/
+output/playwright/

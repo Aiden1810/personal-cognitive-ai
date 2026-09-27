@@ -4,7 +4,7 @@
 
 ## 1. 当前授权与项目阶段
 
-本仓库目前只完成项目启动文档与 Git 协作。应用开发任务须由安明确安排；不要因为读到未来规划就自动创建 Next.js、安装依赖、创建数据库或实现页面。
+本仓库已进入骨架阶段：安已授权创建 Next.js、公共类型、统一数据入口与三个页面。后续应用任务仍须由安明确安排；不要因为读到完整规划就自动接入 AI、数据库或登录。
 
 本文件规定未来开发边界。安下达某个模块任务后，在该任务范围内执行，不把本文理解为整项目一次性实现的授权。
 
@@ -26,11 +26,11 @@
 
 需要改公共类型、接口或其他人的目录时，先向安提出具体修改与影响；未经任务授权不越界。获得授权后无需为相同修改反复确认。
 
-不自行新增依赖、模型 SDK、数据库、环境变量或另一套数据格式。安统一确定包管理器并维护一份锁文件；当前尚未选定或安装。
+不自行新增依赖、模型 SDK、数据库、环境变量或另一套数据格式。安统一维护 npm 与 package-lock.json。首次安装使用 npm.cmd ci，不混用 yarn/pnpm 锁文件。
 
 ## 3. 公共数据约定 v0.1
 
-以下是待实现的契约，不是已存在的 TypeScript 文件或数据库 Schema。安在骨架任务中将其转换为 `src/types/domain.ts` 和 `src/types/api.ts`；姚和曹不自行重定义同名实体。
+以下契约已落实为 `src/types/domain.ts` 和 `src/types/api.ts`，不等于数据库 Schema。姚和曹直接导入公共类型，不自行重定义同名实体。
 
 ### 通用约定
 
@@ -126,7 +126,7 @@ actualChoice 必填；outcome、outcomeRecordedAt、userNote 可为 null。选�
 
 ### 数据入口
 
-计划由 `src/lib/data` 对外提供读取演示状态、保存/删除案例、保存模式、保存目标、保存生成记录、保存反馈的统一入口。
+`src/lib/data/index.ts` 已导出 `useDemoData`、`demoDataActions`、`createRecordMetadata`。React 页面通过 useDemoData 读取 state、ready、error 及保存动作。保存动作返回 boolean；只有 true 才显示成功。store.ts 为存储实现，features 不直接导入其实现或访问 localStorage。
 
 - 姚和曹不直接操作 localStorage，不自行建立 Supabase 客户端。
 - 各页面调用同一入口，立即读取最新状态；模式驳回、案例删除或目标停用后，不使用旧缓存继续生成。
@@ -162,7 +162,7 @@ actualChoice 必填；outcome、outcomeRecordedAt、userNote 可为 null。选�
 
 ## 6. 未来环境变量约定
 
-当前没有应用或 .env 文件。应用骨架实现时由安创建无真实值的 `.env.example` 并同步 README。
+当前有应用骨架与无真实值的 `.env.example`，没有 LLM 调用。骨架运行不需要 .env 或密钥。
 
 统一的服务端变量计划为 `LLM_API_KEY`、`LLM_MODEL`、`LLM_BASE_URL`。供应商确定后定义必填与默认值，不让成员猜测端点或模型名。缺少配置时明确报告不可用，不假装成功调用。
 
@@ -193,11 +193,11 @@ actualChoice 必填；outcome、outcomeRecordedAt、userNote 可为 null。选�
 - 正常、空数据、加载、失败等需要覆盖的状态。
 - 实际验收步骤；完成后报告文件和验证证据。
 
-AI 先说明理解，再小步修改。遇到接口不足先报告具体缺口，不自行另建系统。当前没有应用时不得编造安装或运行命令。
+AI 先说明理解，再小步修改。遇到接口不足先报告具体缺口，不自行另建系统。运行与验证命令见 README，不编造未实现的服务。
 
 ## 9. 验证与 Demo
 
-文档启动阶段只检查文档、契约一致性及 Git 状态，不安装测试框架。应用实现后，对真实风险验证：
+骨架使用 Node 内置测试，不新增测试框架。运行 npm.cmd test、npm.cmd run typecheck、npm.cmd run lint、npm.cmd run build。后续应用任务按真实风险验证：
 
 - 添加和编辑案例后刷新，数据一致；空表单不能保存。
 - 案例或模式被驳回、目标停用后，后续请求不使用它们。
