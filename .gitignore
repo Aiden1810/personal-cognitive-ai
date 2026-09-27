@@ -1,0 +1,25 @@
+# Dependencies and build outputs (for the future application)
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
+
+# Logs and local OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Personal runtime state and raw user data
+.codex/
+.agents/
+private-data/
