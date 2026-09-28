@@ -23,6 +23,7 @@ const navigation = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
+  const isChat = path === "/chat";
   const { state, ready, error, saveCase, reset } = useDemoData();
   const [message, setMessage] = useState("");
 
@@ -50,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         跳到页面内容
       </a>
       <aside className="sidebar">
-        <Link href="/history" className="brand" aria-label="知衡首页">
+        <Link href="/chat" className="brand" aria-label="知衡首页">
           <span className="brand-mark" aria-hidden="true">
             衡
           </span>
@@ -59,88 +60,115 @@ export function AppShell({ children }: { children: ReactNode }) {
             <small>PERSONAL COGNITIVE AI</small>
           </span>
         </Link>
-        <div className="sidebar-caption">个人决策工作台</div>
-        <nav aria-label="主要导航">
-          {navigation.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item ${path === item.href ? "is-active" : ""}`}
-              aria-current={path === item.href ? "page" : undefined}
-            >
-              <span className="nav-number">{item.number}</span>
-              <span>
-                <strong>{item.label}</strong>
-                <small>{item.note}</small>
-              </span>
-              <span className="nav-arrow" aria-hidden="true">
-                ↗
-              </span>
-            </Link>
-          ))}
+        <div className="sidebar-caption">从对话开始认识自己</div>
+        <nav className="primary-navigation" aria-label="主要导航">
+          <Link
+            href="/chat"
+            className={`nav-item ${isChat ? "is-active" : ""}`}
+            aria-current={isChat ? "page" : undefined}
+          >
+            <span className="nav-number">01</span>
+            <span>
+              <strong>对话</strong>
+              <small>记录想法与经历</small>
+            </span>
+            <span className="nav-arrow" aria-hidden="true">
+              ↗
+            </span>
+          </Link>
         </nav>
+        <details className="legacy-navigation">
+          <summary>旧版决策演示</summary>
+          <nav aria-label="旧版决策演示">
+            {navigation.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-item ${path === item.href ? "is-active" : ""}`}
+                aria-current={path === item.href ? "page" : undefined}
+              >
+                <span className="nav-number">{item.number}</span>
+                <span>
+                  <strong>{item.label}</strong>
+                  <small>{item.note}</small>
+                </span>
+                <span className="nav-arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </Link>
+            ))}
+          </nav>
+        </details>
         <div className="sidebar-bottom">
-          <span className="status-dot" /> 演示身份
+          <span className="status-dot" /> 本地开发版本
           <p>
             安 · 姚 · 曹<br />
-            一起把每次选择的依据留下来。
+            聊天、记忆、画像由用户掌控。
           </p>
         </div>
       </aside>
       <div className="main-column">
         <header className="topbar">
-          <span>知衡 / 基础工作台</span>
-          <span className="badge">本地原型 · v0.1</span>
+          <span>知衡 / {isChat ? "对话" : "旧版决策演示"}</span>
+          <span className="badge">本地原型</span>
         </header>
-        <main id="main-content">
-          <div className="prototype-notice">
-            <span aria-hidden="true">◌</span>
-            <p>
-              当前为项目骨架。资料是合成占位示例，AI
-              尚未接入；具体演示场景稍后确定。
-            </p>
-          </div>
-          {error && (
+        <main id="main-content" className={isChat ? "chat-main" : undefined}>
+          {!isChat && (
+            <div className="prototype-notice">
+              <span aria-hidden="true">◌</span>
+              <p>
+                当前为项目骨架。资料是合成占位示例，AI
+                尚未接入；具体演示场景稍后确定。
+              </p>
+            </div>
+          )}
+          {!isChat && error && (
             <div className="error-notice" role="alert">
               {error}
             </div>
           )}
-          {!ready ? (
+          {!isChat && !ready ? (
             <p className="loading" role="status">
               正在读取本地资料…
             </p>
           ) : (
             children
           )}
-          <details className="developer-check">
-            <summary>团队开发检查</summary>
-            <p>
-              所有页面使用同一数据入口。可以保存占位记录，刷新后检查是否保留；此操作不会调用
-              AI。
-            </p>
-            <div className="button-row">
-              <button
-                className="button secondary"
-                onClick={checkSaving}
-                disabled={
-                  !state?.cases.some((item) => item.id === "sample-case-1")
-                }
-              >
-                检查本地保存
-              </button>
-              <button className="text-button" onClick={resetData}>
-                重置占位资料
-              </button>
-            </div>
-            {message && (
-              <p role="status" className="save-message">
-                {message}
+          {!isChat && (
+            <details className="developer-check">
+              <summary>团队开发检查</summary>
+              <p>
+                所有页面使用同一数据入口。可以保存占位记录，刷新后检查是否保留；此操作不会调用
+                AI。
               </p>
-            )}
-          </details>
+              <div className="button-row">
+                <button
+                  className="button secondary"
+                  onClick={checkSaving}
+                  disabled={
+                    !state?.cases.some((item) => item.id === "sample-case-1")
+                  }
+                >
+                  检查本地保存
+                </button>
+                <button className="text-button" onClick={resetData}>
+                  重置占位资料
+                </button>
+              </div>
+              {message && (
+                <p role="status" className="save-message">
+                  {message}
+                </p>
+              )}
+            </details>
+          )}
         </main>
         <footer className="footer">
-          <span>理解过去 · 自主设定方向 · 留下行动反馈</span>
+          <span>
+            {isChat
+              ? "从对话到记忆，再到可编辑的个人画像"
+              : "旧版决策演示，仅供参考"}
+          </span>
           <span>数据仅保存在本浏览器</span>
         </footer>
       </div>

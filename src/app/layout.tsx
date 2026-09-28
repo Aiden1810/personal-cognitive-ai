@@ -4,8 +4,8 @@ import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "知衡 · 个人决策工作台",
-  description: "记录选择的依据，由用户自主设定改进方向。知衡项目基础原型。",
+  title: "知衡 · 个人认知 AI",
+  description: "从对话开始，逐步建立由用户掌控的个人记忆与画像。",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
