@@ -20,3 +20,16 @@ test("chat endpoint does not expose a configured model to another origin", async
   }));
   assert.equal(response.status, 403);
 });
+
+test("chat endpoint accepts the browser origin when Next internally uses localhost", async () => {
+  const response = await POST(new Request("http://localhost:3001/api/chat", {
+    method: "POST",
+    body: JSON.stringify({ messages: [] }),
+    headers: {
+      "Content-Type": "application/json",
+      Host: "127.0.0.1:3001",
+      Origin: "http://127.0.0.1:3001",
+    },
+  }));
+  assert.equal(response.status, 400);
+});

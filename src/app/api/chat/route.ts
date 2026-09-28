@@ -10,7 +10,18 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  const host = request.headers.get("host") ?? new URL(request.url).host;
+  let sameLocalOrigin = false;
+  try {
+    const localHost = new URL(`http://${host}`);
+    const browserOrigin = origin ? new URL(origin) : null;
+    sameLocalOrigin =
+      ["localhost", "127.0.0.1"].includes(localHost.hostname) &&
+      (!browserOrigin || (browserOrigin.protocol === "http:" && browserOrigin.host === localHost.host));
+  } catch {
+    // Invalid Host or Origin is denied below.
+  }
+  if (!sameLocalOrigin) {
     return Response.json(
       { ok: false, error: { code: "FORBIDDEN", message: "请求来源不允许。" } },
       { status: 403 },

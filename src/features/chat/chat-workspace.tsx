@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useChatData } from "@/lib/chat/client";
+import { requestAssistantReply } from "@/lib/chat/api";
+import type { ChatMessage } from "@/lib/chat/store";
 
 export function ChatWorkspace() {
   const {
@@ -15,6 +17,9 @@ export function ChatWorkspace() {
   } = useChatData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [replyError, setReplyError] = useState<{ id: string; message: string } | null>(null);
+  const pendingRef = useRef(false);
   const conversations = state?.conversations ?? [];
   const selected =
     conversations.find((item) => item.id === selectedId) ??
@@ -22,31 +27,62 @@ export function ChatWorkspace() {
     null;
 
   function startConversation() {
+    if (pendingRef.current) return;
     const created = createConversation();
     if (created) setSelectedId(created.id);
   }
 
-  function saveMessage(event: FormEvent<HTMLFormElement>) {
+  async function fetchReply(id: string, messages: ChatMessage[]) {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPendingId(id);
+    setReplyError(null);
+    try {
+      const reply = await requestAssistantReply(messages);
+      appendMessage(id, "assistant", reply);
+    } catch (failure) {
+      setReplyError({
+        id,
+        message: failure instanceof Error ? failure.message : "AI 回复失败，请稍后重试。",
+      });
+    } finally {
+      pendingRef.current = false;
+      setPendingId(null);
+    }
+  }
+
+  function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.trim()) return;
+    if (!draft.trim() || pendingRef.current) return;
     let id = selected?.id;
+    let history = selected?.messages ?? [];
     if (!id) {
       const created = createConversation();
       if (!created) return;
       id = created.id;
+      history = [];
       setSelectedId(id);
     }
-    if (appendMessage(id, "user", draft)) setDraft("");
+    const saved = appendMessage(id, "user", draft);
+    if (!saved) return;
+    setDraft("");
+    void fetchReply(id, [...history, saved]);
+  }
+
+  function retryReply() {
+    if (!selected || pendingRef.current) return;
+    void fetchReply(selected.id, selected.messages);
   }
 
   function removeConversation() {
-    if (!selected) return;
+    if (!selected || pendingRef.current) return;
     if (window.confirm("删除这段对话及其中的所有消息？此操作无法撤销。")) {
       if (deleteConversation(selected.id)) setSelectedId(null);
     }
   }
 
   function resetChats() {
+    if (pendingRef.current) return;
     if (window.confirm("清空这个浏览器里的所有知衡对话？此操作无法撤销。")) {
       if (reset()) {
         setSelectedId(null);
@@ -66,7 +102,7 @@ export function ChatWorkspace() {
           <button
             className="chat-new-button"
             onClick={startConversation}
-            disabled={!ready || !!error}
+            disabled={!ready || !!error || !!pendingId}
           >
             ＋ 新对话
           </button>
@@ -85,6 +121,7 @@ export function ChatWorkspace() {
               className={`chat-thread-item ${selected?.id === item.id ? "is-selected" : ""}`}
               key={item.id}
               onClick={() => setSelectedId(item.id)}
+              disabled={!!pendingId}
               aria-current={selected?.id === item.id ? "true" : undefined}
             >
               <span>{item.title}</span>
@@ -102,14 +139,14 @@ export function ChatWorkspace() {
             <h2>{selected?.title ?? "从一次对话开始"}</h2>
           </div>
           {selected && (
-            <button className="text-button" onClick={removeConversation}>
+            <button className="text-button" onClick={removeConversation} disabled={!!pendingId}>
               删除对话
             </button>
           )}
         </div>
         <div className="chat-availability" role="note">
           <span className="chat-availability-dot" aria-hidden="true" />
-          当前阶段：保存对话已可用；AI 回复、自动记忆和个人画像尚未接入。
+          AI 对话需要本机配置 DeepSeek API Key；自动记忆和个人画像尚未接入。
         </div>
         {error && (
           <div className="error-notice" role="alert">
@@ -118,6 +155,9 @@ export function ChatWorkspace() {
               明确清空全部本地对话
             </button>
           </div>
+        )}
+        {replyError && selected && replyError.id === selected.id && (
+          <div className="error-notice" role="alert">{replyError.message} 你的消息已保留，可以重试。</div>
         )}
         <div className="chat-message-area" aria-live="polite">
           {!selected || selected.messages.length === 0 ? (
@@ -128,7 +168,7 @@ export function ChatWorkspace() {
               <p className="chat-kicker">A PLACE TO THINK OUT LOUD</p>
               <h3>从你的想法开始。</h3>
               <p>
-                写下你想聊的事。现在可以保存自己的对话内容；接入模型后，知衡会在这里回复。
+                写下你想聊的事。配置 DeepSeek API Key 后，知衡会在这里回复。
               </p>
             </div>
           ) : (
@@ -142,23 +182,29 @@ export function ChatWorkspace() {
             ))
           )}
         </div>
-        <form className="chat-composer" onSubmit={saveMessage}>
+        {pendingId === selected?.id && <p role="status">知衡正在回复…</p>}
+        {selected?.messages.at(-1)?.role === "user" && !pendingId && !error && (
+          <button type="button" className="text-button" onClick={retryReply}>
+            重试回复
+          </button>
+        )}
+        <form className="chat-composer" onSubmit={sendMessage}>
           <label htmlFor="chat-draft">写下你想说的</label>
           <div className="chat-composer-box">
             <textarea
               id="chat-draft"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="先记录一段想法…"
-              disabled={!ready || !!error}
+              placeholder="写下想和知衡讨论的事…"
+              disabled={!ready || !!error || !!pendingId}
               maxLength={10000}
             />
-            <button type="submit" disabled={!draft.trim() || !ready || !!error}>
-              保存消息 ↗
+            <button type="submit" disabled={!draft.trim() || !ready || !!error || !!pendingId}>
+              {pendingId ? "等待回复…" : "发送 ↗"}
             </button>
           </div>
           <p>
-            当前按钮只保存你的文字，不会发送给 AI 服务。请勿录入真实敏感资料。
+            发送后，这段对话会传给 DeepSeek 生成回复，并保存在当前浏览器。请勿录入真实敏感资料。
           </p>
         </form>
       </div>

@@ -169,7 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ? "从对话到记忆，再到可编辑的个人画像"
               : "旧版决策演示，仅供参考"}
           </span>
-          <span>数据仅保存在本浏览器</span>
+          <span>{isChat ? "对话本地保存；发送后由 DeepSeek 处理" : "数据仅保存在本浏览器"}</span>
         </footer>
       </div>
     </div>
