@@ -4,7 +4,14 @@
 
 ## 当前可检查的部分
 
-安负责的 `/chat` 页面已建立本地对话保存。这里没有 AI 回复或云端同步；测试请使用虚构文字。旧演示页面仍在，作为之前方案记录。
+安负责的 `/chat` 页面已建立本地对话保存。`/api/chat` 的本地开发接口已接入 DeepSeek 请求逻辑，但页面尚未调用它；没有配置 API Key 时接口明确报错。仍无云端同步；测试请使用虚构文字。旧演示页面仍在，作为之前方案记录。
+
+## 已固定的公共契约
+
+- `src/types/cognitive.ts`：七维 `CognitiveDimension`；`ProfileInsight` 含维度、描述、来源、审核状态和对话证据；`ProfileConflict` 只引用相互矛盾的两条洞察；`UserGoal` 单独保存目标，不覆盖当前洞察。
+- `src/lib/ai/chat.ts`：`ChatRequest` 含 `messages`、`insights`、`goals`。服务端仅把 `confirmed` 洞察和 `active` 目标送给模型；候选和已驳回洞察不得参与个性化回复。最后一条消息须为用户消息。
+- `POST /api/chat` 接收上述 JSON，成功返回 `{ "ok": true, "data": { "reply": "模型文字" } }`；失败返回 `{ "ok": false, "error": { "code": "...", "message": "..." } }`。本地缺少 `LLM_API_KEY` 返回错误，不生成示例答案。接口在 production 暂关闭，直到账户隔离和防滥用措施完成。
+- 消息和画像目前没有共享数据库。姚、曹可以据此设计模块接口，但不要假设画像已自动生成，也不要各自在页面里直接读写 `localStorage`。
 
 ## 后续分工
 
