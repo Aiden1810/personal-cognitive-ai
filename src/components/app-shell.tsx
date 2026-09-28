@@ -24,6 +24,8 @@ const navigation = [
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const isChat = path === "/chat";
+  const isProfile = path === "/profile";
+  const isProduct = isChat || isProfile;
   const { state, ready, error, saveCase, reset } = useDemoData();
   const [message, setMessage] = useState("");
 
@@ -76,6 +78,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               ↗
             </span>
           </Link>
+          <Link
+            href="/profile"
+            className={`nav-item ${isProfile ? "is-active" : ""}`}
+            aria-current={isProfile ? "page" : undefined}
+          >
+            <span className="nav-number">02</span>
+            <span>
+              <strong>我的画像</strong>
+              <small>七维资料与审核</small>
+            </span>
+            <span className="nav-arrow" aria-hidden="true">↗</span>
+          </Link>
         </nav>
         <details className="legacy-navigation">
           <summary>旧版决策演示</summary>
@@ -109,11 +123,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="main-column">
         <header className="topbar">
-          <span>知衡 / {isChat ? "对话" : "旧版决策演示"}</span>
+          <span>知衡 / {isChat ? "对话" : isProfile ? "我的画像" : "旧版决策演示"}</span>
           <span className="badge">本地原型</span>
         </header>
         <main id="main-content" className={isChat ? "chat-main" : undefined}>
-          {!isChat && (
+          {!isProduct && (
             <div className="prototype-notice">
               <span aria-hidden="true">◌</span>
               <p>
@@ -122,19 +136,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               </p>
             </div>
           )}
-          {!isChat && error && (
+          {!isProduct && error && (
             <div className="error-notice" role="alert">
               {error}
             </div>
           )}
-          {!isChat && !ready ? (
+          {!isProduct && !ready ? (
             <p className="loading" role="status">
               正在读取本地资料…
             </p>
           ) : (
             children
           )}
-          {!isChat && (
+          {!isProduct && (
             <details className="developer-check">
               <summary>团队开发检查</summary>
               <p>
@@ -165,11 +179,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="footer">
           <span>
-            {isChat
+            {isProduct
               ? "从对话到记忆，再到可编辑的个人画像"
               : "旧版决策演示，仅供参考"}
           </span>
-          <span>{isChat ? "对话本地保存；发送后由 DeepSeek 处理" : "数据仅保存在本浏览器"}</span>
+          <span>{isProduct ? "数据仅保存在本浏览器；对话或提取时由 DeepSeek 处理" : "数据仅保存在本浏览器"}</span>
         </footer>
       </div>
     </div>
