@@ -17,7 +17,7 @@ test("the client sends recent conversation turns and reads a real reply", async 
     message(index, index % 2 === 0 ? "user" : "assistant")
   );
   let sent: unknown;
-  const reply = await requestAssistantReply(history, [], async (_url, init) => {
+  const reply = await requestAssistantReply(history, [], [], async (_url, init) => {
     sent = JSON.parse(String(init?.body));
     return Response.json({ ok: true, data: { reply: "先确定最重要的事。" } });
   });
@@ -31,7 +31,7 @@ test("the client sends recent conversation turns and reads a real reply", async 
 
 test("the client exposes the server error instead of inventing a response", async () => {
   await assert.rejects(
-    requestAssistantReply([message(0, "user")], [], async () =>
+    requestAssistantReply([message(0, "user")], [], [], async () =>
       Response.json(
         { ok: false, error: { code: "LLM_UNAVAILABLE", message: "AI 服务尚未配置 API Key。" } },
         { status: 503 },
@@ -43,7 +43,7 @@ test("the client exposes the server error instead of inventing a response", asyn
 
 test("the client rejects an unreadable server response", async () => {
   await assert.rejects(
-    requestAssistantReply([message(0, "user")], [], async () =>
+    requestAssistantReply([message(0, "user")], [], [], async () =>
       Response.json({ ok: true, data: { reply: "" } })
     ),
     /没有返回可用的回复/,
@@ -63,7 +63,7 @@ test("only accepted insights are sent with later chat questions", async () => {
       origin: "user_statement", status: "confirmed",
       evidence: [{ conversationId: "c1", messageId: "m2", excerpt: "先完成核心流程" }],
     },
-  ], async (_url, init) => {
+  ], [], async (_url, init) => {
     sent = JSON.parse(String(init?.body));
     return Response.json({ ok: true, data: { reply: "好的" } });
   });
@@ -71,4 +71,16 @@ test("only accepted insights are sent with later chat questions", async () => {
     (sent as { insights: { id: string }[] }).insights.map((item) => item.id),
     ["i2"],
   );
+});
+
+test("only active user goals are sent with later chat questions", async () => {
+  let sent: unknown;
+  await requestAssistantReply([message(0, "user")], [], [
+    { id: "g1", dimension: "behavioral_patterns", intention: "先完成当前任务", status: "active" },
+    { id: "g2", dimension: "values_and_beliefs", intention: "暂停中的目标", status: "paused" },
+  ], async (_url, init) => {
+    sent = JSON.parse(String(init?.body));
+    return Response.json({ ok: true, data: { reply: "好的" } });
+  });
+  assert.deepEqual((sent as { goals: { id: string }[] }).goals.map((goal) => goal.id), ["g1"]);
 });

@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useChatData } from "@/lib/chat/client";
 import { useProfileData } from "@/lib/profile/client";
+import { useGoalData } from "@/lib/goals/client";
 import { buildProfileOverview, PROFILE_DIMENSIONS } from "@/lib/profile/overview";
 import type { ProfileInsight } from "@/types/cognitive";
+import { GoalEditor } from "./goal-editor";
 
 const statusLabels: Record<ProfileInsight["status"], string> = {
   candidate: "待确认",
@@ -16,6 +18,7 @@ const statusLabels: Record<ProfileInsight["status"], string> = {
 export function ProfileOverview() {
   const chat = useChatData();
   const profile = useProfileData();
+  const goals = useGoalData();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const conversations = chat.state?.conversations ?? [];
@@ -95,14 +98,19 @@ export function ProfileOverview() {
         <p className="eyebrow">ZHIHENG / PROFILE</p>
         <h1 id="profile-title">我的当前画像</h1>
         <p className="page-description">
-          七个维度用于整理资料，不是人格分数。这里展示你审核过的内容和仍待核对的推测；资料不足就保持未知。
+          七个维度用于整理资料，不是人格分数。上方是有依据的当前画像，下方是你自己设定的目标；两者分开保存。
         </p>
       </header>
-      {!chat.ready || !profile.ready ? (
+      {!chat.ready || !profile.ready || !goals.ready ? (
         <p className="loading" role="status">正在读取本地画像…</p>
-      ) : chat.error || profile.error ? (
+      ) : chat.error || profile.error || goals.error ? (
         <div className="error-notice" role="alert">
-          {chat.error ?? profile.error} 原资料不会自动清空，请先返回对话页检查本地数据。
+          {chat.error ?? profile.error ?? goals.error} 原资料不会自动清空。
+          {goals.error && (
+            <button type="button" className="text-button" onClick={() => {
+              if (window.confirm("清空当前浏览器里的全部目标？此操作无法撤销。")) goals.resetGoals();
+            }}>明确清空本地目标</button>
+          )}
         </div>
       ) : (
         <>
@@ -132,11 +140,19 @@ export function ProfileOverview() {
                   </div>
                   {group.active.length === 0 && <p className="profile-unknown">当前画像：未知，尚无已确认且有依据的记录。</p>}
                   {entries.map(({ item, valid }) => renderInsight(item, valid))}
+                  <GoalEditor
+                    dimension={group.dimension}
+                    goal={goals.state?.goals.find((goal) => goal.dimension === group.dimension)}
+                    onSave={goals.upsert}
+                    onPause={goals.pause}
+                    onResume={goals.resume}
+                    onDelete={goals.deleteGoal}
+                  />
                 </section>
               );
             })}
           </div>
-          <p className="profile-overview-note">画像和对话目前仅保存在当前浏览器。AI 推测不等于事实；确认前请核对原话。</p>
+          <p className="profile-overview-note">画像、目标和对话目前仅保存在当前浏览器。启用的目标会随下一次对话发送给 DeepSeek；AI 推测请先核对原话。</p>
         </>
       )}
     </section>

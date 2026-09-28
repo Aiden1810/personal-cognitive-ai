@@ -922,6 +922,39 @@ textarea::placeholder {
   border-radius: 5px;
   background: white;
 }
+.goal-editor {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.goal-editor h3 {
+  margin: 0;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+}
+.goal-editor-note, .goal-empty {
+  margin: 5px 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.goal-intention {
+  margin: 8px 0 10px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  background: #edf2e9;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.goal-intention span {
+  margin-right: 8px;
+  color: var(--green);
+  font-weight: 600;
+}
+.goal-editor .profile-edit-form label {
+  font-size: 11px;
+  color: var(--green);
+}
 .profile-overview-note {
   margin-top: 20px;
 }

@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="nav-number">02</span>
             <span>
               <strong>我的画像</strong>
-              <small>七维资料与审核</small>
+              <small>七维画像与目标</small>
             </span>
             <span className="nav-arrow" aria-hidden="true">↗</span>
           </Link>

@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 import { useChatData } from "@/lib/chat/client";
 import { requestAssistantReply } from "@/lib/chat/api";
 import { useProfileData } from "@/lib/profile/client";
+import { useGoalData } from "@/lib/goals/client";
 import { usableProfileInsights } from "@/lib/profile/usable";
 import { ProfileReviewPanel } from "@/features/profile/profile-review-panel";
 import type { ChatMessage } from "@/lib/chat/store";
@@ -25,6 +27,7 @@ export function ChatWorkspace() {
     removeByConversation,
     resetProfile,
   } = useProfileData();
+  const { state: goalState, ready: goalReady, error: goalError } = useGoalData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -49,7 +52,8 @@ export function ChatWorkspace() {
     setReplyError(null);
     try {
       const insights = usableProfileInsights(profileState?.insights ?? [], conversations);
-      const reply = await requestAssistantReply(messages, insights);
+      const goals = (goalState?.goals ?? []).filter((goal) => goal.status === "active");
+      const reply = await requestAssistantReply(messages, insights, goals);
       appendMessage(id, "assistant", reply);
     } catch (failure) {
       setReplyError({
@@ -64,7 +68,7 @@ export function ChatWorkspace() {
 
   function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.trim() || pendingRef.current || !profileReady || !!profileError) return;
+    if (!draft.trim() || pendingRef.current || !profileReady || !!profileError || !goalReady || !!goalError) return;
     let id = selected?.id;
     let history = selected?.messages ?? [];
     if (!id) {
@@ -81,7 +85,7 @@ export function ChatWorkspace() {
   }
 
   function retryReply() {
-    if (!selected || pendingRef.current) return;
+    if (!selected || pendingRef.current || !goalReady || !!goalError) return;
     void fetchReply(selected.id, selected.messages);
   }
 
@@ -161,7 +165,7 @@ export function ChatWorkspace() {
         </div>
         <div className="chat-availability" role="note">
           <span className="chat-availability-dot" aria-hidden="true" />
-          AI 对话需要本机配置 DeepSeek API Key；画像候选可手动提取和审核，自动持续学习尚未接入。
+          已确认画像与启用的目标可用于聊天；画像候选仍需手动提取和审核，自动持续学习尚未接入。
         </div>
         {error && (
           <div className="error-notice" role="alert">
@@ -174,6 +178,11 @@ export function ChatWorkspace() {
         {profileError && (
           <div className="error-notice" role="alert">
             本地画像读取失败：{profileError} 请展开画像审核区检查或清空。
+          </div>
+        )}
+        {goalError && (
+          <div className="error-notice" role="alert">
+            本地目标读取失败：{goalError} <Link href="/profile">到我的画像检查目标</Link>
           </div>
         )}
         {replyError && selected && replyError.id === selected.id && (
@@ -217,15 +226,15 @@ export function ChatWorkspace() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="写下想和知衡讨论的事…"
-              disabled={!ready || !!error || !profileReady || !!profileError || !!pendingId}
+              disabled={!ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !!pendingId}
               maxLength={10000}
             />
-            <button type="submit" disabled={!draft.trim() || !ready || !!error || !profileReady || !!profileError || !!pendingId}>
+            <button type="submit" disabled={!draft.trim() || !ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !!pendingId}>
               {pendingId ? "等待回复…" : "发送 ↗"}
             </button>
           </div>
           <p>
-            发送后，这段对话会传给 DeepSeek 生成回复，并保存在当前浏览器。请勿录入真实敏感资料。
+            发送后，对话、已确认画像和启用的目标会传给 DeepSeek 生成回复；资料保存在当前浏览器。请勿录入真实敏感资料。
           </p>
         </form>
       </div>

@@ -10,6 +10,7 @@
 
 - `src/types/cognitive.ts`：七维 `CognitiveDimension`；`ProfileInsight` 含维度、描述、来源、审核状态和对话证据；`ProfileConflict` 只引用相互矛盾的两条洞察；`UserGoal` 单独保存目标，不覆盖当前洞察。
 - `src/lib/ai/chat.ts`：`ChatRequest` 含 `messages`、`insights`、`goals`。服务端仅把 `confirmed` 洞察和 `active` 目标送给模型；候选和已驳回洞察不得参与个性化回复。最后一条消息须为用户消息。
+- `src/lib/goals`：每个七维分类最多一个用户填写的目标，状态为 `active` 或 `paused`；目标与观察到的当前画像分开保存。聊天客户端只发送启用的目标。页面不得把目标描述成已发生的事实。
 - `POST /api/chat` 接收上述 JSON，成功返回 `{ "ok": true, "data": { "reply": "模型文字" } }`；失败返回 `{ "ok": false, "error": { "code": "...", "message": "..." } }`。本地缺少 `LLM_API_KEY` 返回错误，不生成示例答案。接口在 production 暂关闭，直到账户隔离和防滥用措施完成。
 - 消息和画像目前没有共享数据库。姚、曹可以据此设计模块接口，但不要假设画像已自动生成，也不要各自在页面里直接读写 `localStorage`。
 - `src/features/profile/profile-review-panel.tsx` 是安为验证数据闭环做的简易审核区。曹可以重新设计正式 UI；姚可基于公共类型与 `src/lib/profile` 继续改善来源核对，公共契约变动由安统一合并。

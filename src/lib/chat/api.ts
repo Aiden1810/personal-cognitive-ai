@@ -1,5 +1,5 @@
 import type { ChatMessage } from "./store.ts";
-import type { ProfileInsight } from "../../types/cognitive.ts";
+import type { ProfileInsight, UserGoal } from "../../types/cognitive.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -20,6 +20,7 @@ function recentMessages(history: ChatMessage[]) {
 export async function requestAssistantReply(
   history: ChatMessage[],
   insights: ProfileInsight[] = [],
+  goals: UserGoal[] = [],
   fetcher: (input: string, init?: RequestInit) => Promise<Response> = fetch,
 ): Promise<string> {
   if (history.length === 0 || history.at(-1)?.role !== "user") {
@@ -34,7 +35,7 @@ export async function requestAssistantReply(
       body: JSON.stringify({
         messages,
         insights: insights.filter((item) => item.status === "confirmed"),
-        goals: [],
+        goals: goals.filter((goal) => goal.status === "active"),
       }),
       signal: AbortSignal.timeout(35000),
     });
