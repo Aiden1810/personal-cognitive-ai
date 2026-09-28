@@ -3,6 +3,9 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useChatData } from "@/lib/chat/client";
 import { requestAssistantReply } from "@/lib/chat/api";
+import { useProfileData } from "@/lib/profile/client";
+import { usableProfileInsights } from "@/lib/profile/usable";
+import { ProfileReviewPanel } from "@/features/profile/profile-review-panel";
 import type { ChatMessage } from "@/lib/chat/store";
 
 export function ChatWorkspace() {
@@ -15,6 +18,13 @@ export function ChatWorkspace() {
     deleteConversation,
     reset,
   } = useChatData();
+  const {
+    state: profileState,
+    ready: profileReady,
+    error: profileError,
+    removeByConversation,
+    resetProfile,
+  } = useProfileData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -38,7 +48,8 @@ export function ChatWorkspace() {
     setPendingId(id);
     setReplyError(null);
     try {
-      const reply = await requestAssistantReply(messages);
+      const insights = usableProfileInsights(profileState?.insights ?? [], conversations);
+      const reply = await requestAssistantReply(messages, insights);
       appendMessage(id, "assistant", reply);
     } catch (failure) {
       setReplyError({
@@ -53,7 +64,7 @@ export function ChatWorkspace() {
 
   function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.trim() || pendingRef.current) return;
+    if (!draft.trim() || pendingRef.current || !profileReady || !!profileError) return;
     let id = selected?.id;
     let history = selected?.messages ?? [];
     if (!id) {
@@ -77,7 +88,10 @@ export function ChatWorkspace() {
   function removeConversation() {
     if (!selected || pendingRef.current) return;
     if (window.confirm("删除这段对话及其中的所有消息？此操作无法撤销。")) {
-      if (deleteConversation(selected.id)) setSelectedId(null);
+      if (deleteConversation(selected.id)) {
+        removeByConversation(selected.id);
+        setSelectedId(null);
+      }
     }
   }
 
@@ -85,6 +99,7 @@ export function ChatWorkspace() {
     if (pendingRef.current) return;
     if (window.confirm("清空这个浏览器里的所有知衡对话？此操作无法撤销。")) {
       if (reset()) {
+        resetProfile();
         setSelectedId(null);
         setDraft("");
       }
@@ -146,7 +161,7 @@ export function ChatWorkspace() {
         </div>
         <div className="chat-availability" role="note">
           <span className="chat-availability-dot" aria-hidden="true" />
-          AI 对话需要本机配置 DeepSeek API Key；自动记忆和个人画像尚未接入。
+          AI 对话需要本机配置 DeepSeek API Key；画像候选可手动提取和审核，自动持续学习尚未接入。
         </div>
         {error && (
           <div className="error-notice" role="alert">
@@ -156,9 +171,15 @@ export function ChatWorkspace() {
             </button>
           </div>
         )}
+        {profileError && (
+          <div className="error-notice" role="alert">
+            本地画像读取失败：{profileError} 请展开画像审核区检查或清空。
+          </div>
+        )}
         {replyError && selected && replyError.id === selected.id && (
           <div className="error-notice" role="alert">{replyError.message} 你的消息已保留，可以重试。</div>
         )}
+        <ProfileReviewPanel conversation={selected} busy={!!pendingId} />
         <div className="chat-message-area" aria-live="polite">
           {!selected || selected.messages.length === 0 ? (
             <div className="chat-welcome">
@@ -196,10 +217,10 @@ export function ChatWorkspace() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="写下想和知衡讨论的事…"
-              disabled={!ready || !!error || !!pendingId}
+              disabled={!ready || !!error || !profileReady || !!profileError || !!pendingId}
               maxLength={10000}
             />
-            <button type="submit" disabled={!draft.trim() || !ready || !!error || !!pendingId}>
+            <button type="submit" disabled={!draft.trim() || !ready || !!error || !profileReady || !!profileError || !!pendingId}>
               {pendingId ? "等待回复…" : "发送 ↗"}
             </button>
           </div>

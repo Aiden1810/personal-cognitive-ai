@@ -777,6 +777,80 @@ textarea::placeholder {
 .chat-stage > .error-notice {
   margin: 16px 34px 0;
 }
+.profile-review {
+  margin: 14px 34px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffefa;
+  font-size: 12px;
+}
+.profile-review summary {
+  cursor: pointer;
+  padding: 12px 15px;
+  color: var(--green);
+  font-weight: 600;
+}
+.profile-review-body {
+  padding: 0 15px 15px;
+}
+.profile-review-body > p, .profile-muted {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.profile-analyze-button, .profile-actions button {
+  border: 1px solid #b9c9b6;
+  border-radius: 5px;
+  background: #eef3eb;
+  color: var(--green);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.profile-analyze-button:disabled, .profile-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.profile-insight {
+  margin-top: 13px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+.profile-insight-meta, .profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.profile-insight-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+.profile-insight-statement {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.profile-evidence {
+  margin: 10px 0;
+  color: var(--muted);
+}
+.profile-evidence blockquote {
+  margin: 7px 0;
+  padding: 7px 10px;
+  border-left: 2px solid #b9c9b6;
+  background: #f7f8f3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.profile-edit-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 65px;
+  margin: 7px 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
 .chat-message-area {
   flex: 1;
   min-height: 350px;
@@ -946,6 +1020,9 @@ textarea::placeholder {
   }
   .chat-availability {
     padding: 10px 20px;
+  }
+  .profile-review {
+    margin: 12px 20px 0;
   }
   .chat-message-area {
     min-height: 290px;
