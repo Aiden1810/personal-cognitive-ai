@@ -61,7 +61,7 @@ test("missing model configuration fails before any network request", async () =>
   await assert.rejects(
     generateChatReply(parseChatRequest(validRequest), {
       apiKey: "",
-      model: "deepseek-v4-pro",
+      model: "deepseek-flash",
       fetcher: () => { throw new Error("network should not be called"); },
     }),
     /尚未配置/,
@@ -80,7 +80,7 @@ test("model response returns actual reply and sends the full conversation", asyn
   let sent: unknown;
   const reply = await generateChatReply(request, {
     apiKey: "test-key",
-    model: "deepseek-v4-pro",
+    model: "deepseek-flash",
     fetcher: async (_url, init) => {
       sent = JSON.parse(String(init?.body));
       return Response.json({ choices: [{ message: { role: "assistant", content: "先完成核心流程。" } }] });
@@ -97,7 +97,7 @@ test("invalid provider output is reported without a fabricated reply", async () 
   await assert.rejects(
     generateChatReply(parseChatRequest(validRequest), {
       apiKey: "test-key",
-      model: "deepseek-v4-pro",
+      model: "deepseek-flash",
       fetcher: async () => Response.json({ choices: [{ message: { content: null } }] }),
     }),
     /没有返回可用的文字/,

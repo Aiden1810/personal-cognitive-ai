@@ -42,7 +42,7 @@ export async function POST(request: Request): Promise<Response> {
     const input = parseChatRequest(body);
     const reply = await generateChatReply(input, {
       apiKey: process.env.LLM_API_KEY,
-      model: process.env.LLM_MODEL || "deepseek-v4-pro",
+      model: process.env.LLM_MODEL || "deepseek-flash",
     });
     return Response.json({ ok: true, data: { reply } });
   } catch (error) {

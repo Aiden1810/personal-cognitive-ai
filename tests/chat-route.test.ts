@@ -33,3 +33,31 @@ test("chat endpoint accepts the browser origin when Next internally uses localho
   }));
   assert.equal(response.status, 400);
 });
+
+test("chat endpoint defaults to Flash when no model is configured", async () => {
+  const previousKey = process.env.LLM_API_KEY;
+  const previousModel = process.env.LLM_MODEL;
+  const previousFetch = globalThis.fetch;
+  let requestedModel: unknown;
+  try {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_MODEL = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestedModel = JSON.parse(String(init?.body)).model;
+      return Response.json({ choices: [{ message: { role: "assistant", content: "你好" } }] });
+    }) as typeof fetch;
+    const response = await POST(new Request("http://127.0.0.1:3000/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages: [{ role: "user", content: "你好" }] }),
+      headers: { "Content-Type": "application/json" },
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(requestedModel, "deepseek-flash");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = previousKey;
+    if (previousModel === undefined) delete process.env.LLM_MODEL;
+    else process.env.LLM_MODEL = previousModel;
+  }
+});
