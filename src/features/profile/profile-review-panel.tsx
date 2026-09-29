@@ -5,6 +5,7 @@ import type { Conversation } from "@/lib/chat/store";
 import { requestProfileCandidates } from "@/lib/profile/api";
 import { useProfileData } from "@/lib/profile/client";
 import type { CognitiveDimension, ProfileInsight } from "@/types/cognitive";
+import { getExtractionContext } from "@/lib/profile/context";
 
 const dimensionLabels: Record<CognitiveDimension, string> = {
   personality: "人格特质",
@@ -40,7 +41,8 @@ export function ProfileReviewPanel({
   const items = (state?.insights ?? []).filter((insight) =>
     insight.evidence.some((source) => source.conversationId === conversation?.id)
   );
-  const hasUserMessage = conversation?.messages.some((message) => message.role === "user") ?? false;
+  const scope = getExtractionContext(conversation, state?.insights ?? []);
+  const hasUserMessage = scope.messages.length > 0;
 
   async function analyze() {
     if (!conversation || analyzing || busy) return;
@@ -48,12 +50,13 @@ export function ProfileReviewPanel({
     setAnalysisError(null);
     setAnalysisMessage(null);
     try {
-      const candidates = await requestProfileCandidates(conversation);
+      const candidates = await requestProfileCandidates(conversation, undefined, state?.insights ?? []);
       const added = addCandidates(candidates);
       if (added !== null) {
-        setAnalysisMessage(added > 0
+        const result = added > 0
           ? `提出 ${added} 条新候选，请查看证据并逐条审核。`
-          : "这段对话暂无新的、证据充分的候选画像。");
+          : "本次读取范围内未新增候选，可能没有新依据或与已有记录重复。";
+        setAnalysisMessage(`本次读取了当时最近的 ${scope.messages.length} 条用户发言（共 ${scope.totalUserMessages} 条）。${result}`);
       }
     } catch (failure) {
       setAnalysisError(failure instanceof Error ? failure.message : "画像提取失败，请稍后重试。");
@@ -88,14 +91,20 @@ export function ProfileReviewPanel({
     <details className="profile-review" open={error ? true : undefined}>
       <summary>画像候选与审核 · {items.length} 条</summary>
       <div className="profile-review-body">
-        <p>点击提取后，这段对话的用户消息会传给 DeepSeek。请核对每条推测与原话；只有确认的内容才参与以后回答。</p>
+        <p>点击提取后，以下范围的用户发言和相关的已有审核记录会传给 DeepSeek，用于提出新候选并减少重复。请核对推测与原话；只有确认的内容才参与以后回答。</p>
+        <p className="profile-muted">
+          下次提取将读取最近 {scope.messages.length} 条用户发言，共 {scope.totalUserMessages} 条；
+          {scope.omittedUserMessages > 0 ? `较早的 ${scope.omittedUserMessages} 条未包含。` : "当前用户发言已全部包含。"}
+          最多读取 20 条、合计 2 万字，助手回复不参与。
+          另参考 {scope.existingInsights.length} 条相关已有候选与审核记录（最多 30 条）。
+        </p>
         <button
           type="button"
           className="profile-analyze-button"
           onClick={() => void analyze()}
           disabled={!ready || !!error || !hasUserMessage || analyzing || busy}
         >
-          {analyzing ? "正在提取…" : "从这段对话提取候选"}
+          {analyzing ? "正在提取…" : "提取近期对话候选"}
         </button>
         {!hasUserMessage && <p className="profile-muted">先发送一条消息，再提取候选。</p>}
         {error && (

@@ -1,5 +1,6 @@
 import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { ProfileInsight, UserGoal } from "../../types/cognitive.ts";
+import { MAX_CHAT_INSIGHTS } from "../profile/context.ts";
 
 interface Message {
   role: "user" | "assistant";
@@ -82,7 +83,7 @@ export function parseChatRequest(value: unknown): ChatRequest {
   }
   const insights = value.insights ?? [];
   const goals = value.goals ?? [];
-  if (!Array.isArray(insights) || insights.length > 20 || !insights.every(insight) ||
+  if (!Array.isArray(insights) || insights.length > MAX_CHAT_INSIGHTS || !insights.every(insight) ||
       !Array.isArray(goals) || goals.length > 10 || !goals.every(goal)) {
     throw new ChatError("VALIDATION_ERROR", "画像或目标数据无效。");
   }

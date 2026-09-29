@@ -1,5 +1,6 @@
 import type { ChatMessage } from "./store.ts";
 import type { ProfileInsight, UserGoal } from "../../types/cognitive.ts";
+import { selectChatInsights } from "../profile/context.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -34,7 +35,7 @@ export async function requestAssistantReply(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages,
-        insights: insights.filter((item) => item.status === "confirmed"),
+        insights: selectChatInsights(insights, history.at(-1)!.content),
         goals: goals.filter((goal) => goal.status === "active"),
       }),
       signal: AbortSignal.timeout(35000),

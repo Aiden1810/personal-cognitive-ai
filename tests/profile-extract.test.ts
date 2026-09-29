@@ -85,3 +85,31 @@ test("no evidence is a valid empty extraction", async () => {
   });
   assert.deepEqual(result, []);
 });
+
+test("reviewed duplicates are suppressed but a different supported statement remains a candidate", async () => {
+  const request = parseExtractionRequest({ ...input, existingInsights: [{
+    dimension: "behavioral_patterns", statement: "临近比赛截止时仍想增加功能", status: "rejected",
+  }] });
+  let sent: unknown;
+  const result = await extractProfileCandidates(request, {
+    apiKey: "test-key", model: "deepseek-flash",
+    fetcher: async (_url, init) => {
+      sent = JSON.parse(String(init?.body));
+      return modelResponse([
+        { dimension: "behavioral_patterns", statement: "临近比赛截止时仍想增加功能。", evidence: [{ messageId: "m1", quote: "我又想加一个新功能" }] },
+        { dimension: "narrative_self", statement: "正在准备五天后的比赛", evidence: [{ messageId: "m1", quote: "比赛还有五天" }] },
+      ]);
+    },
+  });
+  const payload = sent as { messages: { role: string; content: string }[] };
+  const context = JSON.parse(payload.messages.find((message) => message.role === "user")!.content);
+  assert.equal(context.existingInsights[0].status, "rejected");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].statement, "正在准备五天后的比赛");
+  assert.equal(result[0].status, "candidate");
+});
+
+test("invalid or excessive existing review records are rejected before a model call", () => {
+  assert.throws(() => parseExtractionRequest({ ...input, existingInsights: [{ dimension: "unknown", statement: "x", status: "confirmed" }] }), /已有画像/);
+  assert.throws(() => parseExtractionRequest({ ...input, existingInsights: Array.from({ length: 31 }, () => ({ dimension: "behavioral_patterns", statement: "x", status: "confirmed" })) }), /已有画像/);
+});

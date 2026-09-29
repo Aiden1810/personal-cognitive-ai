@@ -12,6 +12,8 @@
 
 - `src/types/cognitive.ts`：七维 `CognitiveDimension`；`ProfileInsight` 含维度、描述、来源、审核状态和对话证据；`ProfileConflict` 只引用相互矛盾的两条洞察；`UserGoal` 单独保存目标，不覆盖当前洞察。
 - `src/lib/ai/chat.ts`：`ChatRequest` 含 `messages`、`insights`、`goals`。服务端仅把 `confirmed` 洞察和 `active` 目标送给模型；候选和已驳回洞察不得参与个性化回复。最后一条消息须为用户消息。
+- `src/lib/profile/context.ts`：统一准备模型资料。聊天最多发送 20 条已确认画像，按当前问题的中英文字面匹配排序，同分按后添加优先；本地记录不删除。提取仅取最近最多 20 条用户发言、合计 2 万字符，并返回总条数和遗漏条数，供界面显示范围。
+- `POST /api/profile/extract` 可附加 `existingInsights`（最多 30 条 `{ dimension, statement, status }`），客户端从本次原话相关的已有记录选取。它们只用于避免重复，不可作为新候选的证据；所有候选仍须引用本次用户原话。字段可省略，以兼容已有调用。姚的审核组件应复用此范围计算，不自行按助手消息截断。
 - `src/lib/goals`：每个七维分类最多一个用户填写的目标，状态为 `active` 或 `paused`；目标与观察到的当前画像分开保存。聊天客户端只发送启用的目标。页面不得把目标描述成已发生的事实。
 - `POST /api/chat` 接收上述 JSON，成功返回 `{ "ok": true, "data": { "reply": "模型文字" } }`；失败返回 `{ "ok": false, "error": { "code": "...", "message": "..." } }`。本地缺少 `LLM_API_KEY` 返回错误，不生成示例答案。接口在 production 暂关闭，直到账户隔离和防滥用措施完成。
 - 消息和画像目前没有共享数据库。姚、曹可以据此设计模块接口，但不要假设画像已自动生成，也不要各自在页面里直接读写 `localStorage`。

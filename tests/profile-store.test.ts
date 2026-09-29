@@ -73,3 +73,12 @@ test("corrupt profile data is reported without being overwritten", () => {
   assert.throws(() => store.getState(), /格式损坏/);
   assert.equal(storage.raw(PROFILE_STORAGE_KEY), "broken");
 });
+
+test("punctuation variants cannot reintroduce a rejected assertion from the same message", () => {
+  const store = createProfileStore(memoryStorage());
+  store.addCandidates([candidate]);
+  store.reject(candidate.id);
+  assert.equal(store.addCandidates([{ ...candidate, id: "repeat", statement: `${candidate.statement}。`, evidence: [{ ...candidate.evidence[0], excerpt: "我又想加功能" }] }]), 0);
+  assert.equal(store.getState().insights[0].status, "rejected");
+  assert.equal(store.addCandidates([{ ...candidate, id: "different", statement: "截止前不想增加新功能" }]), 1);
+});

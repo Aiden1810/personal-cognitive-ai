@@ -1,6 +1,7 @@
 import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { ProfileInsight } from "../../types/cognitive.ts";
 import type { StorageAdapter } from "../chat/store.ts";
+import { normalizeProfileStatement } from "./context.ts";
 
 export const PROFILE_STORAGE_KEY = "zhiheng.profile.v1";
 
@@ -92,8 +93,9 @@ export function createProfileStore(storage: StorageAdapter) {
         const duplicate = state.insights.some((existing) =>
           existing.id === item.id ||
           (existing.dimension === item.dimension &&
-           existing.statement.trim() === item.statement.trim() &&
-           JSON.stringify(existing.evidence) === JSON.stringify(item.evidence))
+           normalizeProfileStatement(existing.statement) === normalizeProfileStatement(item.statement) &&
+           item.evidence.every((source) => existing.evidence.some((prior) =>
+             prior.conversationId === source.conversationId && prior.messageId === source.messageId)))
         );
         if (!duplicate) {
           state.insights.push(item);

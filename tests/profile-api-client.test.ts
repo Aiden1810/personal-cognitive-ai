@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requestProfileCandidates } from "../src/lib/profile/api.ts";
 import type { Conversation } from "../src/lib/chat/store.ts";
+import type { ProfileInsight } from "../src/types/cognitive.ts";
 
 const conversation: Conversation = {
   id: "c1",
@@ -51,4 +52,37 @@ test("the client presents extraction failures to the user", async () => {
     ),
     /画像提取暂时不可用/,
   );
+});
+
+test("assistant replies do not consume the extraction user-message window", async () => {
+  const longConversation: Conversation = { ...conversation, messages: Array.from({ length: 42 }, (_, index) => ({
+    ...conversation.messages[0], id: `m${index}`, role: index % 2 === 0 ? "user" : "assistant",
+    content: index % 2 === 0 ? `用户经历${index}` : "助手回复".repeat(2500),
+  })) };
+  let sent: unknown;
+  await requestProfileCandidates(longConversation, async (_url, init) => {
+    sent = JSON.parse(String(init?.body));
+    return Response.json({ ok: true, data: { candidates: [] } });
+  });
+  const body = sent as { messages: {id: string; role: string}[] };
+  assert.equal(body.messages.length, 20);
+  assert.equal(body.messages[0].id, "m2");
+  assert.equal(body.messages.at(-1)?.id, "m40");
+  assert.ok(body.messages.every((item) => item.role === "user"));
+});
+
+test("extraction carries bounded existing review records from the selected source messages only", async () => {
+  const existing: ProfileInsight[] = Array.from({ length: 35 }, (_, index) => ({
+    ...candidate, id: `i${index}`, statement: `已有记录${index}`, status: "rejected",
+  } as ProfileInsight));
+  existing.push({ ...existing[0], id: "other", evidence: [{ conversationId: "other", messageId: "m1", excerpt: "我又想加功能" }] });
+  let sent: unknown;
+  await requestProfileCandidates(conversation, async (_url, init) => {
+    sent = JSON.parse(String(init?.body));
+    return Response.json({ ok: true, data: { candidates: [] } });
+  }, existing);
+  const body = sent as { existingInsights: {status: string; statement: string}[] };
+  assert.equal(body.existingInsights.length, 30);
+  assert.ok(body.existingInsights.every((item) => item.status === "rejected"));
+  assert.equal(body.existingInsights[0].statement, "已有记录5");
 });

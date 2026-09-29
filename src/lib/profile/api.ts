@@ -1,28 +1,18 @@
 import type { Conversation } from "../chat/store.ts";
 import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { ProfileInsight } from "../../types/cognitive.ts";
+import { getExtractionContext } from "./context.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function recentMessages(conversation: Conversation) {
-  const selected: { id: string; role: "user" | "assistant"; content: string }[] = [];
-  let characters = 0;
-  for (let index = conversation.messages.length - 1; index >= 0 && selected.length < 20; index--) {
-    const { id, role, content } = conversation.messages[index];
-    if (characters + content.length > 20000) break;
-    selected.unshift({ id, role, content });
-    characters += content.length;
-  }
-  return selected;
-}
-
 export async function requestProfileCandidates(
   conversation: Conversation,
   fetcher: (input: string, init?: RequestInit) => Promise<Response> = fetch,
+  existing: ProfileInsight[] = [],
 ): Promise<ProfileInsight[]> {
-  const messages = recentMessages(conversation);
+  const { messages, existingInsights } = getExtractionContext(conversation, existing);
   if (!messages.some((message) => message.role === "user")) {
     throw new Error("这段对话还没有可分析的用户消息。");
   }
@@ -31,7 +21,7 @@ export async function requestProfileCandidates(
     response = await fetcher("/api/profile/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId: conversation.id, messages }),
+      body: JSON.stringify({ conversationId: conversation.id, messages, existingInsights }),
       signal: AbortSignal.timeout(35000),
     });
   } catch {

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requestAssistantReply } from "../src/lib/chat/api.ts";
 import type { ChatMessage } from "../src/lib/chat/store.ts";
+import type { ProfileInsight } from "../src/types/cognitive.ts";
+import { parseChatRequest } from "../src/lib/ai/chat.ts";
 
 function message(index: number, role: ChatMessage["role"]): ChatMessage {
   return {
@@ -83,4 +85,23 @@ test("only active user goals are sent with later chat questions", async () => {
     return Response.json({ ok: true, data: { reply: "好的" } });
   });
   assert.deepEqual((sent as { goals: { id: string }[] }).goals.map((goal) => goal.id), ["g1"]);
+});
+
+test("more than twenty confirmed insights still produce a valid chat request and retain relevant older evidence", async () => {
+  const insights: ProfileInsight[] = Array.from({ length: 25 }, (_, index) => ({
+    id: `i${index}`, dimension: "behavioral_patterns", statement: `喜欢旅行景点${index}`,
+    origin: "user_statement", status: "confirmed",
+    evidence: [{ conversationId: "c1", messageId: "m1", excerpt: "虚构资料" }],
+  }));
+  insights[0].statement = "复习时先整理资料，导致做题时间不足";
+  const before = structuredClone(insights);
+  let sent: unknown;
+  await requestAssistantReply([{ ...message(0, "user"), content: "复习时要先做题吗？" }], insights, [], async (_url, init) => {
+    sent = JSON.parse(String(init?.body));
+    return Response.json({ ok: true, data: { reply: "可先做题。" } });
+  });
+  const parsed = parseChatRequest(sent);
+  assert.equal(parsed.insights.length, 20);
+  assert.equal(parsed.insights[0].id, "i0");
+  assert.deepEqual(insights, before, "selection must not delete or reorder saved profiles");
 });
