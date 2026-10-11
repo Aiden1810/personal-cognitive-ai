@@ -1,5 +1,6 @@
 # Dependencies and build outputs (for the future application)
 node_modules/
+.cache/semantic-model/
 .next/
 out/
 dist/
@@ -25,4 +26,4 @@ Thumbs.db
 .agents/
 private-data/
 .playwright-cli/
-output/playwright/
+output/
