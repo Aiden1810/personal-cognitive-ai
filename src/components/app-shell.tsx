@@ -1,31 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useDemoData } from "@/lib/data";
-
-const navigation = [
-  {
-    href: "/history",
-    number: "01",
-    label: "历史与模式",
-    note: "理解过去的选择",
-  },
-  { href: "/goals", number: "02", label: "我的目标", note: "决定想改变什么" },
-  {
-    href: "/decision",
-    number: "03",
-    label: "决策对比",
-    note: "让依据进入新选择",
-  },
-];
+import { AppSidebar } from "./app-sidebar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const isChat = path === "/chat";
   const isProfile = path === "/profile";
-  const isProduct = isChat || isProfile;
+  const isOnboarding = path === "/onboarding";
+  const isOutcomes = path === "/progress";
+  const isAccount = path === "/account";
+  const isBackup = path === "/backup";
+  const isProduct = isChat || isProfile || isOnboarding || isOutcomes || isAccount || isBackup;
   const { state, ready, error, saveCase, reset } = useDemoData();
   const [message, setMessage] = useState("");
 
@@ -48,85 +36,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="workspace">
+    <div className={`workspace desktop-workspace ${isChat ? "workspace--chat" : ""}`}>
       <a href="#main-content" className="skip-link">
         跳到页面内容
       </a>
-      <aside className="sidebar">
-        <Link href="/chat" className="brand" aria-label="知衡首页">
-          <span className="brand-mark" aria-hidden="true">
-            衡
-          </span>
-          <span>
-            <strong>知衡</strong>
-            <small>PERSONAL COGNITIVE AI</small>
-          </span>
-        </Link>
-        <div className="sidebar-caption">从对话开始认识自己</div>
-        <nav className="primary-navigation" aria-label="主要导航">
-          <Link
-            href="/chat"
-            className={`nav-item ${isChat ? "is-active" : ""}`}
-            aria-current={isChat ? "page" : undefined}
-          >
-            <span className="nav-number">01</span>
-            <span>
-              <strong>对话</strong>
-              <small>记录想法与经历</small>
-            </span>
-            <span className="nav-arrow" aria-hidden="true">
-              ↗
-            </span>
-          </Link>
-          <Link
-            href="/profile"
-            className={`nav-item ${isProfile ? "is-active" : ""}`}
-            aria-current={isProfile ? "page" : undefined}
-          >
-            <span className="nav-number">02</span>
-            <span>
-              <strong>我的画像</strong>
-              <small>七维画像与目标</small>
-            </span>
-            <span className="nav-arrow" aria-hidden="true">↗</span>
-          </Link>
-        </nav>
-        <details className="legacy-navigation">
-          <summary>旧版决策演示</summary>
-          <nav aria-label="旧版决策演示">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-item ${path === item.href ? "is-active" : ""}`}
-                aria-current={path === item.href ? "page" : undefined}
-              >
-                <span className="nav-number">{item.number}</span>
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.note}</small>
-                </span>
-                <span className="nav-arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </Link>
-            ))}
-          </nav>
-        </details>
-        <div className="sidebar-bottom">
-          <span className="status-dot" /> 本地开发版本
-          <p>
-            安 · 姚 · 曹<br />
-            聊天、记忆、画像由用户掌控。
-          </p>
-        </div>
-      </aside>
+      {!isChat && <AppSidebar />}
       <div className="main-column">
-        <header className="topbar">
-          <span>知衡 / {isChat ? "对话" : isProfile ? "我的画像" : "旧版决策演示"}</span>
-          <span className="badge">本地原型</span>
-        </header>
-        <main id="main-content" className={isChat ? "chat-main" : undefined}>
+        {!isChat && !isProfile && <header className="topbar">
+          <span>{isChat ? "对话" : isOnboarding ? "初始问卷" : isProfile ? "我的画像" : isOutcomes ? "行动记录" : isBackup ? "资料备份" : isAccount ? "云端账户" : "旧版决策演示"}</span>
+        </header>}
+        <main id="main-content" className={isChat ? "chat-main" : isProfile ? "profile-main" : undefined}>
           {!isProduct && (
             <div className="prototype-notice">
               <span aria-hidden="true">◌</span>
@@ -177,14 +96,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             </details>
           )}
         </main>
-        <footer className="footer">
+        {!isProduct && <footer className="footer">
           <span>
             {isProduct
-              ? "从对话到记忆，再到可编辑的个人画像"
+              ? "从对话、画像到实际行动，持续由你核对"
               : "旧版决策演示，仅供参考"}
           </span>
-          <span>{isProduct ? "数据仅保存在本浏览器；对话或提取时由 DeepSeek 处理" : "数据仅保存在本浏览器"}</span>
-        </footer>
+          <span>{isProduct ? "日常资料存于本浏览器；可主动云端备份；AI 调用由 DeepSeek 处理" : "数据仅保存在本浏览器"}</span>
+        </footer>}
       </div>
     </div>
   );

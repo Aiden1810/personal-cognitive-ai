@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
+import "./product.css";
+import "./refinement.css";
 import "./questionnaire.css";
 import "./personal-context.css";
+import "./desktop-ui.css";
+import "./chat-desktop.css";
+import "./profile-desktop.css";
 
 export const metadata: Metadata = {
   title: "知衡 · 个人认知 AI",
