@@ -1,3 +1,5 @@
+import { AppError } from "../errors.ts";
+import { readStorageItem, writeStoredJson } from "../storage/storage.ts";
 import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { CognitiveDimension, UserGoal } from "../../types/cognitive.ts";
 import type { StorageAdapter } from "../chat/store.ts";
@@ -33,34 +35,25 @@ function validState(value: unknown): value is GoalState {
 
 export function createGoalStore(storage: StorageAdapter) {
   function getState(): GoalState {
-    let raw: string | null;
-    try {
-      raw = storage.getItem(GOAL_STORAGE_KEY);
-    } catch {
-      throw new Error("无法读取本地目标，请检查浏览器存储权限。");
-    }
+    const raw = readStorageItem(storage, GOAL_STORAGE_KEY, "无法读取本地目标，请检查浏览器存储权限。");
     if (raw === null) return { version: 1, goals: [] };
     try {
       const value: unknown = JSON.parse(raw);
       if (!validState(value)) throw new Error("Invalid goal data");
       return value;
-    } catch {
-      throw new Error("本地目标格式损坏或版本不兼容；原数据未被覆盖。");
+    } catch (cause) {
+      throw new AppError("INVALID_STORED_DATA", "本地目标格式损坏或版本不兼容；原数据未被覆盖。", { cause, operation: "parse", storageKey: GOAL_STORAGE_KEY });
     }
   }
 
   function save(state: GoalState): void {
-    try {
-      storage.setItem(GOAL_STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      throw new Error("本地目标保存失败，修改尚未保存。");
-    }
+    writeStoredJson(storage, GOAL_STORAGE_KEY, state, "本地目标保存失败，修改尚未保存。");
   }
 
   function changeStatus(id: string, status: UserGoal["status"]): void {
     const state = getState();
     const goal = state.goals.find((item) => item.id === id);
-    if (!goal) throw new Error("这项目标不存在。");
+    if (!goal) throw new AppError("NOT_FOUND", "这项目标不存在。");
     goal.status = status;
     save(state);
   }
@@ -71,9 +64,9 @@ export function createGoalStore(storage: StorageAdapter) {
       return getState().goals.filter((goal) => goal.status === "active");
     },
     upsert(dimension: CognitiveDimension, intention: string): UserGoal {
-      if (!COGNITIVE_DIMENSIONS.includes(dimension)) throw new Error("目标维度无效。");
+      if (!COGNITIVE_DIMENSIONS.includes(dimension)) throw new AppError("VALIDATION_ERROR", "目标维度无效。");
       const trimmed = intention.trim();
-      if (!text(trimmed, 500)) throw new Error("目标不能为空或超过 500 字。");
+      if (!text(trimmed, 500)) throw new AppError("VALIDATION_ERROR", "目标不能为空或超过 500 字。");
       const state = getState();
       let goal = state.goals.find((item) => item.dimension === dimension);
       if (goal) {

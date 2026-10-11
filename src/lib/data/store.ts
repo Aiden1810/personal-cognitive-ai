@@ -15,13 +15,11 @@ import {
   isDemoState,
   isImprovementGoal,
 } from "./validation.ts";
+import { AppError } from "../errors.ts";
+import { readStorageItem, writeStoredJson, type StorageAdapter } from "../storage/storage.ts";
+export type { StorageAdapter } from "../storage/storage.ts";
 
 export const STORAGE_KEY = "zhiheng.demo.v0.1";
-
-export interface StorageAdapter {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
 
 export interface DemoStore {
   getState(): DemoState;
@@ -36,33 +34,20 @@ export interface DemoStore {
 
 export function createDemoStore(storage: StorageAdapter): DemoStore {
   function getState(): DemoState {
-    let raw: string | null;
-    try {
-      raw = storage.getItem(STORAGE_KEY);
-    } catch {
-      throw new Error("无法读取本地数据。请检查浏览器是否允许本地存储。");
-    }
+    const raw = readStorageItem(storage, STORAGE_KEY, "无法读取本地数据。请检查浏览器是否允许本地存储。");
     if (raw === null) return createDemoState();
     try {
       const parsed: unknown = JSON.parse(raw);
       if (!isDemoState(parsed)) throw new Error("Invalid data");
       return parsed;
-    } catch {
-      throw new Error(
-        "本地数据格式损坏或版本不兼容。原记录未被覆盖，可明确选择重置示例。",
-      );
+    } catch (cause) {
+      throw new AppError("INVALID_STORED_DATA", "本地数据格式损坏或版本不兼容。原记录未被覆盖，可明确选择重置示例。", { cause, operation: "parse", storageKey: STORAGE_KEY });
     }
   }
 
   function persist(state: DemoState): void {
-    if (!isDemoState(state)) throw new Error("记录格式不符合公共数据约定。");
-    try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      throw new Error(
-        "本地保存失败。浏览器存储可能被禁用或空间不足，修改尚未保存。",
-      );
-    }
+    if (!isDemoState(state)) throw new AppError("VALIDATION_ERROR", "记录格式不符合公共数据约定。");
+    writeStoredJson(storage, STORAGE_KEY, state, "本地保存失败。浏览器存储可能被禁用或空间不足，修改尚未保存。");
   }
 
   function mutate(change: (state: DemoState) => void): void {
@@ -121,9 +106,9 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
   return {
     getState,
     saveCase(record) {
-      if (!record.title.trim()) throw new Error("案例标题不能为空。");
+      if (!record.title.trim()) throw new AppError("VALIDATION_ERROR", "案例标题不能为空。");
       if (!isDecisionCase(record))
-        throw new Error("案例字段不完整，请检查情境、实际选择与来源。");
+        throw new AppError("VALIDATION_ERROR", "案例字段不完整，请检查情境、实际选择与来源。");
       mutate((state) => {
         const previous = state.cases.find((item) => item.id === record.id);
         if (previous && JSON.stringify(previous) !== JSON.stringify(record)) {
@@ -151,7 +136,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
       });
     },
     savePattern(record) {
-      if (!isBehaviorPattern(record)) throw new Error("模式字段不完整。");
+      if (!isBehaviorPattern(record)) throw new AppError("VALIDATION_ERROR", "模式字段不完整。");
       mutate((state) => {
         const ids = [...record.supportCaseIds, ...record.counterCaseIds];
         if (
@@ -166,7 +151,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
               ),
           )
         ) {
-          throw new Error("模式证据不存在、重复、已驳回或属于其他场景。");
+          throw new AppError("VALIDATION_ERROR", "模式证据不存在、重复、已驳回或属于其他场景。");
         }
         if (
           record.status === "confirmed" &&
@@ -177,7 +162,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
                 "confirmed",
             ))
         ) {
-          throw new Error("确认模式需要已确认的支持证据。");
+          throw new AppError("VALIDATION_ERROR", "确认模式需要已确认的支持证据。");
         }
         const previous = state.patterns.find((item) => item.id === record.id);
         const changed =
@@ -206,7 +191,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
     },
     saveGoal(record) {
       if (!isImprovementGoal(record))
-        throw new Error("目标描述和适用条件不能为空。");
+        throw new AppError("VALIDATION_ERROR", "目标描述和适用条件不能为空。");
       mutate((state) => {
         if (
           record.patternId !== null &&
@@ -215,7 +200,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
               item.id === record.patternId && item.scenario === record.scenario,
           )
         ) {
-          throw new Error("关联模式不存在或属于其他场景。");
+          throw new AppError("VALIDATION_ERROR", "关联模式不存在或属于其他场景。");
         }
         if (
           record.status === "active" &&
@@ -225,14 +210,14 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
               item.id === record.patternId && item.status === "confirmed",
           )
         ) {
-          throw new Error("关联目标只能对已确认模式启用。");
+          throw new AppError("VALIDATION_ERROR", "关联目标只能对已确认模式启用。");
         }
         upsert(state.goals, record);
       });
     },
     saveComparison(record) {
       if (!isDecisionComparison(record))
-        throw new Error("三视角结果格式或证据引用无效。");
+        throw new AppError("VALIDATION_ERROR", "三视角结果格式或证据引用无效。");
       mutate((state) => {
         if (
           record.evidenceSnapshot.some(
@@ -245,7 +230,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
               ),
           )
         )
-          throw new Error("生成证据已失效，请重新读取案例。");
+          throw new AppError("VALIDATION_ERROR", "生成证据已失效，请重新读取案例。");
         if (
           record.patternSnapshot.some(
             (item) =>
@@ -254,7 +239,7 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
               ),
           )
         ) {
-          throw new Error("生成模式已失效，请重新读取模式。");
+          throw new AppError("VALIDATION_ERROR", "生成模式已失效，请重新读取模式。");
         }
         if (
           record.goalSnapshot &&
@@ -263,17 +248,17 @@ export function createDemoStore(storage: StorageAdapter): DemoStore {
               item.id === record.goalSnapshot?.id && item.status === "active",
           )
         ) {
-          throw new Error("生成目标已停用，请重新读取目标。");
+          throw new AppError("VALIDATION_ERROR", "生成目标已停用，请重新读取目标。");
         }
         upsert(state.comparisons, record);
       });
     },
     saveFeedback(record) {
       if (!isDecisionFeedback(record))
-        throw new Error("反馈字段不完整，实际选择不能为空。");
+        throw new AppError("VALIDATION_ERROR", "反馈字段不完整，实际选择不能为空。");
       mutate((state) => {
         if (!state.comparisons.some((item) => item.id === record.comparisonId))
-          throw new Error("对应决策记录不存在。");
+          throw new AppError("VALIDATION_ERROR", "对应决策记录不存在。");
         upsert(state.feedback, record);
       });
     },

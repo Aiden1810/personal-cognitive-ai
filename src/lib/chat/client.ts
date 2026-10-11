@@ -1,5 +1,8 @@
 "use client";
 
+import { errorState, type AppErrorCode } from "../errors.ts";
+import { getBrowserStorage } from "../storage/browser.ts";
+
 import { useSyncExternalStore } from "react";
 import { createChatStore, CHAT_STORAGE_KEY } from "./store";
 import type { ChatMessage, ChatState } from "./store";
@@ -8,9 +11,10 @@ interface ChatSnapshot {
   state: ChatState | null;
   ready: boolean;
   error: string | null;
+  errorCode: AppErrorCode | null;
 }
 
-const initial: ChatSnapshot = { state: null, ready: false, error: null };
+const initial: ChatSnapshot = { state: null, ready: false, error: null, errorCode: null };
 let snapshot = initial;
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -23,15 +27,15 @@ function refresh() {
   initialized = true;
   try {
     snapshot = {
-      state: createChatStore(window.localStorage).getState(),
+      state: createChatStore(getBrowserStorage()).getState(),
       ready: true,
-      error: null,
+      error: null, errorCode: null,
     };
   } catch (error) {
     snapshot = {
       state: null,
       ready: true,
-      error: error instanceof Error ? error.message : "读取本地对话失败。",
+      ...errorState(error, "读取本地对话失败。"),
     };
   }
 }
@@ -60,7 +64,7 @@ function execute<T>(
   action: (store: ReturnType<typeof createChatStore>) => T,
 ): T | null {
   try {
-    const result = action(createChatStore(window.localStorage));
+    const result = action(createChatStore(getBrowserStorage()));
     refresh();
     publish();
     return result;
@@ -68,7 +72,7 @@ function execute<T>(
     snapshot = {
       ...snapshot,
       ready: true,
-      error: error instanceof Error ? error.message : "本地保存失败。",
+      ...errorState(error, "本地保存失败。"),
     };
     publish();
     return null;

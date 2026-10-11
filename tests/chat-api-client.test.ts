@@ -43,6 +43,35 @@ test("the client exposes the server error instead of inventing a response", asyn
   );
 });
 
+test("chat errors preserve the server code and HTTP status", async () => {
+  await assert.rejects(requestAssistantReply([message(0, "user")], [], [], async () =>
+    Response.json({ ok: false, error: { code: "FORBIDDEN", message: "请求来源不允许。" } }, { status: 403 })),
+  { name: "AppError", code: "FORBIDDEN", message: "请求来源不允许。", status: 403 });
+});
+
+test("network failures keep their original cause", async () => {
+  const failure = new TypeError("connection failed");
+  await assert.rejects(requestAssistantReply([message(0, "user")], [], [], async () => { throw failure; }),
+    { name: "AppError", code: "NETWORK_ERROR", cause: failure });
+});
+
+test("a failure envelope in HTTP 200 cannot be mistaken for a reply", async () => {
+  await assert.rejects(requestAssistantReply([message(0, "user")], [], [], async () =>
+    Response.json({ ok: false, error: { code: "LLM_UNAVAILABLE", message: "服务暂时不可用。" }, data: { reply: "伪成功" } })),
+  { code: "LLM_UNAVAILABLE" });
+});
+
+test("chat rejects a missing discriminator and conflicting HTTP status", async () => {
+  for (const response of [
+    Response.json({ data: { reply: "缺少 ok" } }),
+    Response.json({ ok: true, data: { reply: "与 HTTP 错误冲突" } }, { status: 503 }),
+    Response.json({ ok: false, error: { code: "UNKNOWN_CODE", message: "不可信错误" } }, { status: 500 }),
+  ]) {
+    await assert.rejects(requestAssistantReply([message(0, "user")], [], [], async () => response),
+      { code: "INVALID_RESPONSE" });
+  }
+});
+
 test("the client rejects an unreadable server response", async () => {
   await assert.rejects(
     requestAssistantReply([message(0, "user")], [], [], async () =>

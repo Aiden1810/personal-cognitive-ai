@@ -1,11 +1,16 @@
 import { ChatError, generateChatReply, parseChatRequest } from "../../../lib/ai/chat.ts";
+import type { ChatResponse } from "../../../types/chat-api.ts";
+
+function jsonResponse(body: ChatResponse, status = 200): Response {
+  return Response.json(body, { status });
+}
 
 export async function POST(request: Request): Promise<Response> {
   // Until accounts and abuse protection exist, this endpoint is for local development only.
   if (process.env.NODE_ENV === "production") {
-    return Response.json(
+    return jsonResponse(
       { ok: false, error: { code: "LLM_UNAVAILABLE", message: "公开部署的 AI 聊天尚未启用。" } },
-      { status: 503 },
+      503,
     );
   }
 
@@ -22,9 +27,9 @@ export async function POST(request: Request): Promise<Response> {
     // Invalid Host or Origin is denied below.
   }
   if (!sameLocalOrigin) {
-    return Response.json(
+    return jsonResponse(
       { ok: false, error: { code: "FORBIDDEN", message: "请求来源不允许。" } },
-      { status: 403 },
+      403,
     );
   }
 
@@ -44,17 +49,17 @@ export async function POST(request: Request): Promise<Response> {
       apiKey: process.env.LLM_API_KEY,
       model: process.env.LLM_MODEL || "deepseek-flash",
     });
-    return Response.json({ ok: true, data: { reply } });
+    return jsonResponse({ ok: true, data: { reply } });
   } catch (error) {
     if (error instanceof ChatError) {
-      return Response.json(
+      return jsonResponse(
         { ok: false, error: { code: error.code, message: error.message } },
-        { status: error.code === "VALIDATION_ERROR" ? 400 : 503 },
+        error.code === "VALIDATION_ERROR" ? 400 : 503,
       );
     }
-    return Response.json(
+    return jsonResponse(
       { ok: false, error: { code: "INTERNAL_ERROR", message: "处理请求时出现错误。" } },
-      { status: 500 },
+      500,
     );
   }
 }

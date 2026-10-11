@@ -1,5 +1,8 @@
 "use client";
 
+import { errorState, type AppErrorCode } from "../errors.ts";
+import { getBrowserStorage } from "../storage/browser.ts";
+
 import { useSyncExternalStore } from "react";
 import { createGoalStore, GOAL_STORAGE_KEY } from "./store";
 import type { GoalState } from "./store";
@@ -9,9 +12,10 @@ interface Snapshot {
   state: GoalState | null;
   ready: boolean;
   error: string | null;
+  errorCode: AppErrorCode | null;
 }
 
-const initial: Snapshot = { state: null, ready: false, error: null };
+const initial: Snapshot = { state: null, ready: false, error: null, errorCode: null };
 let snapshot = initial;
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -23,12 +27,12 @@ function publish() {
 function refresh() {
   initialized = true;
   try {
-    snapshot = { state: createGoalStore(window.localStorage).getState(), ready: true, error: null };
+    snapshot = { state: createGoalStore(getBrowserStorage()).getState(), ready: true, error: null, errorCode: null };
   } catch (error) {
     snapshot = {
       state: null,
       ready: true,
-      error: error instanceof Error ? error.message : "读取本地目标失败。",
+      ...errorState(error, "读取本地目标失败。"),
     };
   }
 }
@@ -55,7 +59,7 @@ function subscribe(listener: () => void) {
 
 function execute<T>(action: (store: ReturnType<typeof createGoalStore>) => T): T | null {
   try {
-    const result = action(createGoalStore(window.localStorage));
+    const result = action(createGoalStore(getBrowserStorage()));
     refresh();
     publish();
     return result;
@@ -63,7 +67,7 @@ function execute<T>(action: (store: ReturnType<typeof createGoalStore>) => T): T
     snapshot = {
       ...snapshot,
       ready: true,
-      error: error instanceof Error ? error.message : "本地目标保存失败。",
+      ...errorState(error, "本地目标保存失败。"),
     };
     publish();
     return null;

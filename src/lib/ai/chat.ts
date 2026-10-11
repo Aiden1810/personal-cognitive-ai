@@ -2,25 +2,19 @@ import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { ProfileInsight, UserGoal } from "../../types/cognitive.ts";
 import { MAX_CHAT_INSIGHTS } from "../profile/context.ts";
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { AppError } from "../errors.ts";
+import type { ChatRequest, ChatMessageInput as Message, ChatModelErrorCode } from "../../types/chat-api.ts";
+export type { ChatRequest } from "../../types/chat-api.ts";
 
-export interface ChatRequest {
-  messages: Message[];
-  insights: ProfileInsight[];
-  goals: UserGoal[];
-}
-
-export class ChatError extends Error {
-  readonly code: "VALIDATION_ERROR" | "LLM_UNAVAILABLE" | "INVALID_MODEL_OUTPUT";
+export class ChatError extends AppError {
+  readonly code: ChatModelErrorCode;
 
   constructor(
-    code: "VALIDATION_ERROR" | "LLM_UNAVAILABLE" | "INVALID_MODEL_OUTPUT",
+    code: ChatModelErrorCode,
     message: string,
+    options: ErrorOptions = {},
   ) {
-    super(message);
+    super(code, message, options);
     this.code = code;
   }
 }
@@ -142,8 +136,8 @@ export async function generateChatReply(request: ChatRequest, options: ModelOpti
       }),
       signal: AbortSignal.timeout(30000),
     });
-  } catch {
-    throw new ChatError("LLM_UNAVAILABLE", "连接 AI 服务失败或等待超时，请稍后重试。");
+  } catch (cause) {
+    throw new ChatError("LLM_UNAVAILABLE", "连接 AI 服务失败或等待超时，请稍后重试。", { cause });
   }
   if (!response.ok) {
     throw new ChatError("LLM_UNAVAILABLE", `AI 服务暂时不可用（HTTP ${response.status}）。`);
@@ -151,8 +145,8 @@ export async function generateChatReply(request: ChatRequest, options: ModelOpti
   let body: unknown;
   try {
     body = await response.json();
-  } catch {
-    throw new ChatError("INVALID_MODEL_OUTPUT", "AI 服务返回了无法读取的结果。");
+  } catch (cause) {
+    throw new ChatError("INVALID_MODEL_OUTPUT", "AI 服务返回了无法读取的结果。", { cause });
   }
   const choices = record(body) ? body.choices : null;
   const first = Array.isArray(choices) ? choices[0] : null;

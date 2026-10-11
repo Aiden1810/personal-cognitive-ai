@@ -1,5 +1,8 @@
 "use client";
 
+import { errorState, type AppErrorCode } from "../errors.ts";
+import { getBrowserStorage } from "../storage/browser.ts";
+
 import { useSyncExternalStore } from "react";
 import { createProfileStore, PROFILE_STORAGE_KEY } from "./store";
 import type { ProfileState } from "./store";
@@ -9,9 +12,10 @@ interface Snapshot {
   state: ProfileState | null;
   ready: boolean;
   error: string | null;
+  errorCode: AppErrorCode | null;
 }
 
-const initial: Snapshot = { state: null, ready: false, error: null };
+const initial: Snapshot = { state: null, ready: false, error: null, errorCode: null };
 let snapshot = initial;
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -24,15 +28,15 @@ function refresh() {
   initialized = true;
   try {
     snapshot = {
-      state: createProfileStore(window.localStorage).getState(),
+      state: createProfileStore(getBrowserStorage()).getState(),
       ready: true,
-      error: null,
+      error: null, errorCode: null,
     };
   } catch (error) {
     snapshot = {
       state: null,
       ready: true,
-      error: error instanceof Error ? error.message : "读取本地画像失败。",
+      ...errorState(error, "读取本地画像失败。"),
     };
   }
 }
@@ -59,7 +63,7 @@ function subscribe(listener: () => void) {
 
 function execute<T>(action: (store: ReturnType<typeof createProfileStore>) => T): T | null {
   try {
-    const result = action(createProfileStore(window.localStorage));
+    const result = action(createProfileStore(getBrowserStorage()));
     refresh();
     publish();
     return result;
@@ -67,7 +71,7 @@ function execute<T>(action: (store: ReturnType<typeof createProfileStore>) => T)
     snapshot = {
       ...snapshot,
       ready: true,
-      error: error instanceof Error ? error.message : "本地画像保存失败。",
+      ...errorState(error, "本地画像保存失败。"),
     };
     publish();
     return null;

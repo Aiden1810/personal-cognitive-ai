@@ -1,5 +1,8 @@
 "use client";
 
+import { errorState, type AppErrorCode } from "../errors.ts";
+import { getBrowserStorage } from "../storage/browser.ts";
+
 import { useSyncExternalStore } from "react";
 import type {
   BehaviorPattern,
@@ -15,8 +18,9 @@ interface DataSnapshot {
   state: DemoState | null;
   ready: boolean;
   error: string | null;
+  errorCode: AppErrorCode | null;
 }
-const initial: DataSnapshot = { state: null, ready: false, error: null };
+const initial: DataSnapshot = { state: null, ready: false, error: null, errorCode: null };
 let snapshot = initial;
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -25,15 +29,16 @@ function refresh(): void {
   initialized = true;
   try {
     snapshot = {
-      state: createDemoStore(window.localStorage).getState(),
+      state: createDemoStore(getBrowserStorage()).getState(),
       ready: true,
       error: null,
+      errorCode: null,
     };
   } catch (error) {
     snapshot = {
       state: null,
       ready: true,
-      error: error instanceof Error ? error.message : "读取本地资料失败。",
+      ...errorState(error, "读取本地资料失败。"),
     };
   }
 }
@@ -66,7 +71,7 @@ function execute(
   change: (store: ReturnType<typeof createDemoStore>) => void,
 ): boolean {
   try {
-    change(createDemoStore(window.localStorage));
+    change(createDemoStore(getBrowserStorage()));
     refresh();
     publish();
     return true;
@@ -74,7 +79,7 @@ function execute(
     snapshot = {
       ...snapshot,
       ready: true,
-      error: error instanceof Error ? error.message : "保存失败。",
+      ...errorState(error, "保存失败。"),
     };
     publish();
     return false;

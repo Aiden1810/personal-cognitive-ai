@@ -1,3 +1,6 @@
+import { AppError } from "../errors.ts";
+import { readStorageItem, writeStoredJson, type StorageAdapter } from "../storage/storage.ts";
+export type { StorageAdapter } from "../storage/storage.ts";
 export const CHAT_STORAGE_KEY = "zhiheng.chat.v1";
 
 export interface ChatMessage {
@@ -18,11 +21,6 @@ export interface Conversation {
 export interface ChatState {
   version: 1;
   conversations: Conversation[];
-}
-
-export interface StorageAdapter {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,28 +65,19 @@ function isChatState(value: unknown): value is ChatState {
 
 export function createChatStore(storage: StorageAdapter) {
   function getState(): ChatState {
-    let raw: string | null;
-    try {
-      raw = storage.getItem(CHAT_STORAGE_KEY);
-    } catch {
-      throw new Error("无法读取本地对话，请检查浏览器存储权限。");
-    }
+    const raw = readStorageItem(storage, CHAT_STORAGE_KEY, "无法读取本地对话，请检查浏览器存储权限。");
     if (raw === null) return { version: 1, conversations: [] };
     try {
       const parsed: unknown = JSON.parse(raw);
       if (!isChatState(parsed)) throw new Error("Invalid chat data");
       return parsed;
-    } catch {
-      throw new Error("本地对话格式损坏或版本不兼容；原数据未被覆盖。");
+    } catch (cause) {
+      throw new AppError("INVALID_STORED_DATA", "本地对话格式损坏或版本不兼容；原数据未被覆盖。", { cause, operation: "parse", storageKey: CHAT_STORAGE_KEY });
     }
   }
 
   function persist(state: ChatState): void {
-    try {
-      storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      throw new Error("本地对话保存失败，修改尚未保存。");
-    }
+    writeStoredJson(storage, CHAT_STORAGE_KEY, state, "本地对话保存失败，修改尚未保存。");
   }
 
   return {
@@ -113,11 +102,11 @@ export function createChatStore(storage: StorageAdapter) {
       content: string,
     ): ChatMessage {
       const trimmed = content.trim();
-      if (!trimmed) throw new Error("消息内容不能为空。");
-      if (trimmed.length > 10000) throw new Error("消息不能超过 10000 字。");
+      if (!trimmed) throw new AppError("VALIDATION_ERROR", "消息内容不能为空。");
+      if (trimmed.length > 10000) throw new AppError("VALIDATION_ERROR", "消息不能超过 10000 字。");
       const state = getState();
       const conversation = state.conversations.find((item) => item.id === id);
-      if (!conversation) throw new Error("对话不存在，请重新选择。");
+      if (!conversation) throw new AppError("NOT_FOUND", "对话不存在，请重新选择。");
       const now = new Date().toISOString();
       const message: ChatMessage = {
         id: crypto.randomUUID(),
