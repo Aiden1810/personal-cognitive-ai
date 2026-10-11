@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildQuestionnaireInsights, suggestTraitLevel } from "../src/lib/profile/questionnaire.ts";
+import { buildQuestionnaireInsights, suggestTraitLevel, questionnaireExcerpt } from "../src/lib/profile/questionnaire.ts";
 import { createProfileStore } from "../src/lib/profile/store.ts";
 import { usableProfileInsights } from "../src/lib/profile/usable.ts";
+import { createLocalSnapshot, restoreLocalSnapshot } from "../src/lib/cloud/snapshot.ts";
 import { createGoalStore } from "../src/lib/goals/store.ts";
 import { parseChatRequest, buildModelMessages } from "../src/lib/ai/chat.ts";
 import { selectChatContext, serializeChatContext } from "../src/lib/chat/context.ts";
@@ -65,6 +66,23 @@ test("retaking archives only superseded questionnaire records and preserves goal
   assert.equal(store.getState().insights.find((item) => item.id === firstId)?.status, "archived");
   assert.equal(store.getState().insights.find((item) => item.id === "legacy")?.status, "confirmed");
   assert.equal(createGoalStore(local).getState().goals[0].targetLevel, "high");
+});
+
+test("questionnaire evidence is validated before backup restore or chat use", () => {
+  const local = storage();
+  const store = createProfileStore(local);
+  const items = buildQuestionnaireInsights(answers, {}, now);
+  store.completeQuestionnaire(items);
+  const snapshot = createLocalSnapshot(local);
+  const restored = storage(); restoreLocalSnapshot(snapshot, restored);
+  assert.equal(createProfileStore(restored).getState().insights[0].currentLevel, "medium");
+  assert.equal(createProfileStore(restored).getState().onboarding?.status, "completed");
+  const bad = structuredClone(snapshot);
+  bad.profile.insights[0].evidence[0].excerpt = "编造的回答";
+  assert.throws(() => restoreLocalSnapshot(bad, restored), /损坏/);
+  assert.equal(createProfileStore(restored).getState().insights.length, 1);
+  assert.throws(() => parseChatRequest({ messages: [{ role: "user", content: "帮我开始任务" }], insights: bad.profile.insights }), /画像或目标/);
+  assert.match(questionnaireExcerpt("q1", "sometimes"), /有时/);
 });
 
 test("related chat sends questionnaire sources and separate current and target levels", () => {

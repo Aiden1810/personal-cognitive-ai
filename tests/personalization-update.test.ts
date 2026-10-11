@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildModelMessages, parseChatRequest } from "../src/lib/ai/chat.ts";
+import { createLocalSnapshot, parseCloudSnapshot, restoreLocalSnapshot } from "../src/lib/cloud/snapshot.ts";
 import { createProfileStore, PROFILE_STORAGE_KEY } from "../src/lib/profile/store.ts";
 import { usableProfileInsights } from "../src/lib/profile/usable.ts";
 import { extractProfileCandidates, parseExtractionRequest } from "../src/lib/profile/extract.ts";
@@ -36,6 +37,20 @@ test("client callback records the same preferences sent to the server", async ()
   }, (selection) => { context = selection; }, preferences);
   assert.deepEqual((payload as { preferences: unknown }).preferences, preferences);
   assert.deepEqual((context as { preferences: unknown }).preferences, preferences);
+});
+
+test("old backups receive default preferences rather than borrowing destination settings", () => {
+  const legacy = createLocalSnapshot(storage());
+  delete legacy.preferences;
+  const parsed = parseCloudSnapshot(legacy);
+  assert.deepEqual(parsed.preferences, { version: 1, preferences: { length: "balanced", explanation: "standard", structure: "natural" } });
+});
+
+test("backup restore preserves saved response preferences", () => {
+  const snapshot = { ...createLocalSnapshot(storage()), preferences: { version: 1, preferences } };
+  const destination = storage();
+  restoreLocalSnapshot(snapshot, destination);
+  assert.deepEqual(createLocalSnapshot(destination).preferences, snapshot.preferences);
 });
 
 test("invalid memory scope is refused without saving a candidate", () => {

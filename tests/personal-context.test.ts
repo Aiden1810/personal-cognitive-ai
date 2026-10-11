@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createResponsePreferenceStore, RESPONSE_PREFERENCES_STORAGE_KEY } from "../src/lib/preferences/store.ts";
+import { createLocalSnapshot, parseCloudSnapshot, restoreLocalSnapshot } from "../src/lib/cloud/snapshot.ts";
 import { selectChatContext, serializeChatContext } from "../src/lib/chat/context.ts";
 import { buildModelMessages, parseChatRequest } from "../src/lib/ai/chat.ts";
 import { requestAssistantReply } from "../src/lib/chat/api.ts";
@@ -54,6 +55,17 @@ test("a failed personal-context write preserves both the previous background and
   const failing = createResponsePreferenceStore({ ...local, setItem: () => { throw new Error("quota"); } });
   assert.throws(() => failing.savePersonalContext({ ...input, background: "未保存的新背景" }), /保存失败/);
   assert.equal(local.getItem(RESPONSE_PREFERENCES_STORAGE_KEY), before);
+});
+
+test("personal settings roundtrip in existing backups while legacy snapshots stay valid", () => {
+  const local = storage(); createResponsePreferenceStore(local).savePersonalContext(input);
+  const snapshot = createLocalSnapshot(local); const target = storage(); restoreLocalSnapshot(snapshot, target);
+  assert.equal(createResponsePreferenceStore(target).getState().personalContext?.instructions, input.instructions);
+  const legacy = createLocalSnapshot(storage());
+  assert.equal(parseCloudSnapshot(legacy).preferences?.personalContext, undefined);
+  const damaged = structuredClone(snapshot); damaged.preferences!.personalContext!.updatedAt = "invalid";
+  assert.throws(() => restoreLocalSnapshot(damaged, target), /损坏/);
+  assert.equal(createResponsePreferenceStore(target).getState().personalContext?.background, input.background);
 });
 
 test("background and custom requirements reach the model as user data without creating goals or roles", () => {

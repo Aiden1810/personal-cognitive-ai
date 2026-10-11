@@ -5,6 +5,7 @@ import { CHAT_STORAGE_KEY, createChatStore } from "../src/lib/chat/store.ts";
 import { createGoalStore, GOAL_STORAGE_KEY } from "../src/lib/goals/store.ts";
 import { createProfileStore, PROFILE_STORAGE_KEY } from "../src/lib/profile/store.ts";
 import { createOutcomeStore } from "../src/lib/outcomes/store.ts";
+import { createLocalSnapshot, parseCloudSnapshot } from "../src/lib/cloud/snapshot.ts";
 import type { ChatSuggestion } from "../src/lib/chat/suggestions.ts";
 
 function setup(kind: ChatSuggestion["kind"] = "goal") {
@@ -30,6 +31,15 @@ async function actions() {
   assert.ok(existsSync(new URL("../src/lib/chat/actions.ts", import.meta.url)), "用户确认执行模块尚未实现");
   return import("../src/lib/chat/actions.ts");
 }
+
+test("persisting a suggestion changes no business record and survives backup validation", () => {
+  const { chat, storage, conversation, reply, action } = setup();
+  const before = storage.getItem(GOAL_STORAGE_KEY);
+  assert.equal(typeof chat.setSuggestions, "function", "聊天记录尚不能保存建议");
+  chat.setSuggestions(conversation.id, reply.id, [action]);
+  assert.equal(storage.getItem(GOAL_STORAGE_KEY), before);
+  assert.equal(parseCloudSnapshot(createLocalSnapshot(storage)).chat.conversations[0].messages.at(-1)?.suggestions?.[0].status, "pending");
+});
 
 test("confirmation uses edited goal text and repeated confirmation cannot save twice", async () => {
   const { applyChatSuggestion } = await actions();
@@ -135,4 +145,13 @@ test("forged suggestion sources and suggestions attached to user messages are re
   storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(state));
   assert.throws(() => chat.getState(), /损坏/);
   assert.ok(storage.getItem(PROFILE_STORAGE_KEY));
+});
+
+test("a backup with a coerced suggestion status cannot claim an unsaved goal is completed", () => {
+  const { chat, storage, conversation, reply, action } = setup();
+  chat.setSuggestions(conversation.id, reply.id, [action]);
+  const snapshot = createLocalSnapshot(storage);
+  const saved = snapshot.chat.conversations[0].messages.at(-1)!.suggestions![0];
+  (saved as unknown as Record<string, unknown>).status = ["pending"];
+  assert.throws(() => parseCloudSnapshot(snapshot), /损坏/);
 });

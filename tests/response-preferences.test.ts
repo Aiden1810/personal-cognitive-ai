@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createResponsePreferenceStore, RESPONSE_PREFERENCES_STORAGE_KEY } from "../src/lib/preferences/store.ts";
-
+import { createLocalSnapshot, restoreLocalSnapshot } from "../src/lib/cloud/snapshot.ts";
+import { PROFILE_STORAGE_KEY } from "../src/lib/profile/store.ts";
 import { selectChatContext, serializeChatContext } from "../src/lib/chat/context.ts";
 import { parseChatRequest } from "../src/lib/ai/chat.ts";
 import type { ProfileInsight } from "../src/types/cognitive.ts";
@@ -38,4 +39,19 @@ test("the context budget includes scope and response preferences before the requ
   assert.ok(selected.characters <= 3000);
   assert.equal(selected.characters, serializeChatContext(selected.insights, selected.goals, selected.preferences).length);
   assert.doesNotThrow(() => parseChatRequest({ messages, insights: selected.insights, goals: [], preferences }));
+});
+
+test("a failure when restoring preferences rolls back profile and preference writes", () => {
+  const target = storage();
+  createResponsePreferenceStore(target).save(preferences);
+  target.setItem(PROFILE_STORAGE_KEY, "original-profile");
+  const oldSettings = target.getItem(RESPONSE_PREFERENCES_STORAGE_KEY);
+  let failed = false;
+  const unstable = { ...target, setItem(key: string, value: string) {
+    target.setItem(key, value);
+    if (key === RESPONSE_PREFERENCES_STORAGE_KEY && !failed) { failed = true; throw new Error("failure after write"); }
+  } };
+  assert.throws(() => restoreLocalSnapshot(createLocalSnapshot(storage()), unstable), /已恢复原有本地资料/);
+  assert.equal(target.getItem(PROFILE_STORAGE_KEY), "original-profile");
+  assert.equal(target.getItem(RESPONSE_PREFERENCES_STORAGE_KEY), oldSettings);
 });
