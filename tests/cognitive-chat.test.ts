@@ -57,6 +57,24 @@ test("a chat request must end with a nonempty user message", () => {
   );
 });
 
+test("oversized remembered context is rejected before a provider request", () => {
+  const insight = { ...validRequest.insights[0], statement: "复习".repeat(240), evidence: Array.from({ length: 10 }, (_, index) => ({ conversationId: "c1", messageId: `m${index}`, excerpt: "原话".repeat(240) })) };
+  assert.throws(() => parseChatRequest({ messages: validRequest.messages, insights: [insight], goals: [] }), /附加资料.*过长/);
+});
+
+test("改变意愿按文字含义进入聊天，暂停的目标仍被排除", () => {
+  const request = parseChatRequest({ ...validRequest, goals: [
+    { ...validRequest.goals[0], willingness: "not_now" },
+    { ...validRequest.goals[0], id: "g2", intention: "暂停目标", willingness: "highest", status: "paused" },
+  ] });
+  const messages = buildModelMessages(request);
+  assert.match(messages.at(-1)!.content, /暂不想改变/);
+  assert.doesNotMatch(messages.at(-1)!.content, /当前最想改变|暂停目标/);
+  assert.match(messages[0].content, /用户自评/);
+  assert.match(messages[0].content, /不施压/);
+  assert.throws(() => parseChatRequest({ ...validRequest, goals: [{ ...validRequest.goals[0], willingness: 75 }] }), /目标数据无效/);
+});
+
 test("missing model configuration fails before any network request", async () => {
   await assert.rejects(
     generateChatReply(parseChatRequest(validRequest), {

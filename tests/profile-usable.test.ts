@@ -19,5 +19,5 @@ test("only confirmed insights with intact user evidence are usable", () => {
   assert.deepEqual(usableProfileInsights([{ ...insight, status: "candidate" }], [conversation]), []);
   assert.deepEqual(usableProfileInsights([insight], []), []);
   assert.deepEqual(usableProfileInsights([{ ...insight, evidence: [{ ...insight.evidence[0], excerpt: "不存在的句子" }] }], [conversation]), []);
-  assert.deepEqual(usableProfileInsights([{ ...insight, evidence: [{ ...insight.evidence[0], messageId: "m2" }] }], [conversation]), []);
+  assert.deepEqual(usableProfileInsights([{ ...insight, evidence: [{ conversationId: "c1", messageId: "m2", excerpt: "我喜欢先列出方案" }] }], [conversation]), []);
 });

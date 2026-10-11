@@ -2,6 +2,8 @@ import type { Conversation } from "../chat/store.ts";
 import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { ProfileInsight } from "../../types/cognitive.ts";
 import { getExtractionContext } from "./context.ts";
+import { isProfileScope } from "./scope.ts";
+import { isResponseAdaptation } from "./adaptation.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -48,6 +50,8 @@ export async function requestProfileCandidates(
         !COGNITIVE_DIMENSIONS.some((dimension) => dimension === item.dimension) ||
         typeof item.statement !== "string" || !item.statement.trim() ||
         item.origin !== "ai_inference" || item.status !== "candidate" ||
+        (item.scope !== undefined && !isProfileScope(item.scope)) ||
+        (item.responseAdaptation !== undefined && !isResponseAdaptation(item.responseAdaptation)) ||
         !Array.isArray(item.evidence) || item.evidence.length < 1) {
       throw new Error("画像候选数据格式无效。");
     }

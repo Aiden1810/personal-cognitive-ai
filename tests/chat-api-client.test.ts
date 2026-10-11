@@ -83,14 +83,14 @@ test("the client rejects an unreadable server response", async () => {
 
 test("only accepted insights are sent with later chat questions", async () => {
   let sent: unknown;
-  await requestAssistantReply([message(0, "user")], [
+  await requestAssistantReply([{ ...message(0, "user"), content: "比赛项目如何安排？" }], [
     {
       id: "i1", dimension: "behavioral_patterns", statement: "用户提到会增加功能",
       origin: "ai_inference", status: "candidate",
       evidence: [{ conversationId: "c1", messageId: "m1", excerpt: "增加功能" }],
     },
     {
-      id: "i2", dimension: "behavioral_patterns", statement: "用户希望先完成核心流程",
+      id: "i2", dimension: "behavioral_patterns", statement: "用户希望先完成项目核心流程",
       origin: "user_statement", status: "confirmed",
       evidence: [{ conversationId: "c1", messageId: "m2", excerpt: "先完成核心流程" }],
     },
@@ -106,14 +106,15 @@ test("only accepted insights are sent with later chat questions", async () => {
 
 test("only active user goals are sent with later chat questions", async () => {
   let sent: unknown;
-  await requestAssistantReply([message(0, "user")], [], [
-    { id: "g1", dimension: "behavioral_patterns", intention: "先完成当前任务", status: "active" },
+  await requestAssistantReply([{ ...message(0, "user"), content: "比赛任务先做什么？" }], [], [
+    { id: "g1", dimension: "behavioral_patterns", intention: "先完成比赛当前任务", status: "active", willingness: "strong" },
     { id: "g2", dimension: "values_and_beliefs", intention: "暂停中的目标", status: "paused" },
   ], async (_url, init) => {
     sent = JSON.parse(String(init?.body));
     return Response.json({ ok: true, data: { reply: "好的" } });
   });
   assert.deepEqual((sent as { goals: { id: string }[] }).goals.map((goal) => goal.id), ["g1"]);
+  assert.equal(parseChatRequest(sent).goals[0].willingness, "strong");
 });
 
 test("more than twenty confirmed insights still produce a valid chat request and retain relevant older evidence", async () => {
@@ -130,7 +131,21 @@ test("more than twenty confirmed insights still produce a valid chat request and
     return Response.json({ ok: true, data: { reply: "可先做题。" } });
   });
   const parsed = parseChatRequest(sent);
-  assert.equal(parsed.insights.length, 20);
+  assert.equal(parsed.insights.length, 1);
   assert.equal(parsed.insights[0].id, "i0");
   assert.deepEqual(insights, before, "selection must not delete or reorder saved profiles");
+});
+
+test("the request and its reference preview contain the same relevant goal selection", async () => {
+  let sent: { goals: { id: string }[] } | undefined;
+  let preview: { goals: { id: string }[] } | undefined;
+  await requestAssistantReply([{ ...message(0, "user"), content: "复习考试" }], [], [
+    { id: "study", dimension: "knowledge_structure", intention: "每天复习", status: "active" },
+    { id: "travel", dimension: "narrative_self", intention: "海边旅行", status: "active" },
+  ], async (_url, init) => {
+    sent = JSON.parse(String(init?.body));
+    return Response.json({ ok: true, data: { reply: "先做题。" } });
+  }, (selection) => { preview = selection; });
+  assert.deepEqual(sent?.goals.map((item) => item.id), ["study"]);
+  assert.deepEqual(preview?.goals.map((item) => item.id), ["study"]);
 });

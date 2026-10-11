@@ -6,8 +6,11 @@ import test from "node:test";
 
 const clients = [
   { path: "chat/client", hook: "useChatData", action: 'client.createConversation()' },
-  { path: "profile/client", hook: "useProfileData", action: 'client.resetProfile()' },
-  { path: "goals/client", hook: "useGoalData", action: 'client.upsert("behavioral_patterns", "先列出任务")' },
+  { path: "profile/client", hook: "useProfileData", action: 'client.skipQuestionnaire()' },
+  { path: "goals/client", hook: "useGoalData", action: 'client.upsert("planning", "先列出任务")' },
+  { path: "preferences/client", hook: "useResponsePreferences", action: 'client.save({ length: "brief", explanation: "plain", structure: "natural" })' },
+  { path: "profile/assessment-client", hook: "useAssessmentData", action: 'client.resetAssessment()' },
+  { path: "profile/auto-client", hook: "useAutoProfileData", action: 'client.setEnabled(true, [])' },
   { path: "data/client", hook: "useDemoData", action: 'client.reset()' },
 ];
 

@@ -1,4 +1,5 @@
 import type { ProfileInsight, UserGoal } from "./cognitive.ts";
+import type { PersonalContext, ResponsePreferences } from "../lib/preferences/store.ts";
 
 export interface ChatMessageInput {
   role: "user" | "assistant";
@@ -9,6 +10,8 @@ export interface ChatRequest {
   messages: ChatMessageInput[];
   insights: ProfileInsight[];
   goals: UserGoal[];
+  preferences?: ResponsePreferences;
+  personalContext?: PersonalContext;
 }
 
 export const CHAT_API_ERROR_CODES = ["VALIDATION_ERROR", "LLM_UNAVAILABLE", "INVALID_MODEL_OUTPUT", "FORBIDDEN", "INTERNAL_ERROR"] as const;

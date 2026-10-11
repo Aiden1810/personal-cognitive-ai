@@ -6,7 +6,7 @@ import { getBrowserStorage } from "../storage/browser.ts";
 import { useSyncExternalStore } from "react";
 import { createProfileStore, PROFILE_STORAGE_KEY } from "./store";
 import type { ProfileState } from "./store";
-import type { ProfileInsight } from "../../types/cognitive";
+import type { ProfileInsight, ProfileScope, ResponseAdaptation, TraitLevel } from "../../types/cognitive";
 
 interface Snapshot {
   state: ProfileState | null;
@@ -24,13 +24,16 @@ function publish() {
   listeners.forEach((listener) => listener());
 }
 
+export function refreshProfileData() { refresh(); publish(); }
+
 function refresh() {
   initialized = true;
   try {
     snapshot = {
       state: createProfileStore(getBrowserStorage()).getState(),
       ready: true,
-      error: null, errorCode: null,
+      error: null,
+      errorCode: null,
     };
   } catch (error) {
     snapshot = {
@@ -48,6 +51,9 @@ function getSnapshot() {
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
+  // Refresh on remount; storage events can be missed while there are no subscribers.
+  refresh();
+  publish();
   const onStorage = (event: StorageEvent) => {
     if (event.key === PROFILE_STORAGE_KEY || event.key === null) {
       refresh();
@@ -82,11 +88,20 @@ export function useProfileData() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return {
     ...data,
+    skipQuestionnaire: () => execute((store) => { store.skipQuestionnaire(); return true; }),
+    completeQuestionnaire: (items: ProfileInsight[]) => execute((store) => { store.completeQuestionnaire(items); return true; }),
+    setCurrentLevel: (id: string, level: TraitLevel) => execute((store) => { store.setCurrentLevel(id, level); return true; }),
     addCandidates: (items: ProfileInsight[]) => execute((store) => store.addCandidates(items)),
     confirm: (id: string) => execute((store) => { store.confirm(id); return true; }),
     reject: (id: string) => execute((store) => { store.reject(id); return true; }),
-    edit: (id: string, statement: string) => execute((store) => {
-      store.edit(id, statement);
+    replace: (previousId: string, candidateId: string) => execute((store) => { store.replace(previousId, candidateId); return true; }),
+    archive: (id: string) => execute((store) => { store.archive(id); return true; }),
+    setResponseAdaptation: (id: string, level: ResponseAdaptation) => execute((store) => {
+      store.setResponseAdaptation(id, level);
+      return true;
+    }),
+    edit: (id: string, statement: string, scope?: ProfileScope | null) => execute((store) => {
+      store.edit(id, statement, scope);
       return true;
     }),
     deleteInsight: (id: string) => execute((store) => { store.delete(id); return true; }),

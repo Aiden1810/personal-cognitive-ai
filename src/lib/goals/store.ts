@@ -1,8 +1,10 @@
+import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
+import type { CognitiveDimension, GoalWillingness, UserGoal, TraitLevel } from "../../types/cognitive.ts";
+import type { StorageAdapter } from "../chat/store.ts";
+import { isGoalWillingness } from "./willingness.ts";
+import { isTraitDimension, isTraitLevel } from "../profile/questionnaire.ts";
 import { AppError } from "../errors.ts";
 import { readStorageItem, writeStoredJson } from "../storage/storage.ts";
-import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
-import type { CognitiveDimension, UserGoal } from "../../types/cognitive.ts";
-import type { StorageAdapter } from "../chat/store.ts";
 
 export const GOAL_STORAGE_KEY = "zhiheng.goals.v1";
 
@@ -23,6 +25,8 @@ function validGoal(value: unknown): value is UserGoal {
   return record(value) && text(value.id, 100) &&
     COGNITIVE_DIMENSIONS.some((dimension) => dimension === value.dimension) &&
     text(value.intention, 500) &&
+    (value.willingness === undefined || isGoalWillingness(value.willingness)) &&
+    (value.targetLevel === undefined || (isTraitDimension(value.dimension) && isTraitLevel(value.targetLevel))) &&
     (value.status === "active" || value.status === "paused");
 }
 
@@ -63,19 +67,29 @@ export function createGoalStore(storage: StorageAdapter) {
     getActiveGoals(): UserGoal[] {
       return getState().goals.filter((goal) => goal.status === "active");
     },
-    upsert(dimension: CognitiveDimension, intention: string): UserGoal {
+    upsert(dimension: CognitiveDimension, intention: string, willingness?: GoalWillingness | null, targetLevel?: TraitLevel | null): UserGoal {
       if (!COGNITIVE_DIMENSIONS.includes(dimension)) throw new AppError("VALIDATION_ERROR", "目标维度无效。");
+      if (targetLevel !== undefined && targetLevel !== null && (!isTraitDimension(dimension) || !isTraitLevel(targetLevel))) {
+        throw new AppError("VALIDATION_ERROR", "目标档位无效，请重新选择。");
+      }
+      if (willingness !== undefined && willingness !== null && !isGoalWillingness(willingness)) {
+        throw new AppError("VALIDATION_ERROR", "改变意愿等级无效，请重新选择。");
+      }
       const trimmed = intention.trim();
       if (!text(trimmed, 500)) throw new AppError("VALIDATION_ERROR", "目标不能为空或超过 500 字。");
       const state = getState();
       let goal = state.goals.find((item) => item.dimension === dimension);
       if (goal) {
         goal.intention = trimmed;
-        goal.status = "active";
       } else {
         goal = { id: crypto.randomUUID(), dimension, intention: trimmed, status: "active" };
         state.goals.push(goal);
       }
+      // Omission preserves old callers; null explicitly clears the selection.
+      if (willingness === null) delete goal.willingness;
+      else if (willingness !== undefined) goal.willingness = willingness;
+      if (targetLevel === null) delete goal.targetLevel;
+      else if (targetLevel !== undefined) goal.targetLevel = targetLevel;
       save(state);
       return goal;
     },

@@ -13,14 +13,15 @@ const base: ProfileInsight = {
   status: "confirmed", evidence: [{ conversationId: "c1", messageId: "m1", excerpt: "先列出几个方案" }],
 };
 
-test("overview always includes seven dimensions and counts only sourced confirmations", () => {
+test("overview includes five traits and preserves all seven legacy backgrounds with sourced confirmations", () => {
   const groups = buildProfileOverview([
     base,
     { ...base, id: "i2", status: "candidate", dimension: "behavioral_patterns" },
     { ...base, id: "i3", dimension: "values_and_beliefs", evidence: [{ ...base.evidence[0], excerpt: "不存在的原话" }] },
     { ...base, id: "i4", status: "rejected", dimension: "personality" },
   ], [conversation]);
-  assert.equal(groups.length, 7);
+  assert.equal(groups.length, 12);
+  assert.deepEqual(groups.slice(0, 5).map((group) => group.dimension), ["action_execution", "planning", "time_management", "reflection", "exploration"]);
   assert.deepEqual(groups.find((group) => group.dimension === "cognitive_architecture")?.active.map((item) => item.id), ["i1"]);
   assert.deepEqual(groups.find((group) => group.dimension === "behavioral_patterns")?.pending.map((item) => item.id), ["i2"]);
   assert.deepEqual(groups.find((group) => group.dimension === "values_and_beliefs")?.invalid.map((item) => item.id), ["i3"]);

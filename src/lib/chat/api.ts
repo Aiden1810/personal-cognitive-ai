@@ -1,8 +1,9 @@
-import { AppError } from "../errors.ts";
-import { CHAT_API_ERROR_CODES, type ChatApiErrorCode, type ChatRequest, type ChatResponse } from "../../types/chat-api.ts";
 import type { ChatMessage } from "./store.ts";
 import type { ProfileInsight, UserGoal } from "../../types/cognitive.ts";
-import { selectChatInsights } from "../profile/context.ts";
+import { selectChatContext, type ChatContextSelection } from "./context.ts";
+import type { ResponsePreferences, PersonalContext } from "../preferences/store.ts";
+import { AppError } from "../errors.ts";
+import { CHAT_API_ERROR_CODES, type ChatApiErrorCode, type ChatRequest, type ChatResponse } from "../../types/chat-api.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -40,12 +41,25 @@ export async function requestAssistantReply(
   insights: ProfileInsight[] = [],
   goals: UserGoal[] = [],
   fetcher: (input: string, init?: RequestInit) => Promise<Response> = fetch,
+  onContextSelected?: (selection: ChatContextSelection) => void,
+  preferences?: ResponsePreferences,
+  semanticEnabled = false,
+  personalContext?: PersonalContext,
 ): Promise<string> {
   if (history.length === 0 || history.at(-1)?.role !== "user") {
     throw new AppError("VALIDATION_ERROR", "请先发送一条用户消息。");
   }
   const messages = recentMessages(history);
-  const input: ChatRequest = { messages, insights: selectChatInsights(insights, history.at(-1)!.content), goals: goals.filter((goal) => goal.status === "active") };
+  const selection = selectChatContext(messages, insights, goals, preferences, undefined, personalContext);
+  void semanticEnabled;
+  onContextSelected?.(selection);
+  const input: ChatRequest = {
+    messages,
+    insights: selection.insights,
+    goals: selection.goals,
+    ...(selection.preferences ? { preferences: selection.preferences } : {}),
+    ...(selection.personalContext ? { personalContext: selection.personalContext } : {}),
+  };
   let response: Response;
   try {
     response = await fetcher("/api/chat", {

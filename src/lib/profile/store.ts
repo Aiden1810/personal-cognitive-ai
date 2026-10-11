@@ -1,15 +1,23 @@
-import { AppError } from "../errors.ts";
-import { readStorageItem, writeStoredJson } from "../storage/storage.ts";
 import { COGNITIVE_DIMENSIONS } from "../../types/cognitive.ts";
 import type { ProfileInsight } from "../../types/cognitive.ts";
 import type { StorageAdapter } from "../chat/store.ts";
 import { normalizeProfileStatement } from "./context.ts";
+import { isProfileScope } from "./scope.ts";
+import type { ProfileScope } from "../../types/cognitive.ts";
+import type { ResponseAdaptation } from "../../types/cognitive.ts";
+import { isResponseAdaptation } from "./adaptation.ts";
+import { isEvidenceReference, evidenceKey } from "./evidence.ts";
+import { isTraitDimension, isTraitLevel } from "./questionnaire.ts";
+import type { TraitLevel } from "../../types/cognitive.ts";
+import { AppError } from "../errors.ts";
+import { readStorageItem, writeStoredJson } from "../storage/storage.ts";
 
 export const PROFILE_STORAGE_KEY = "zhiheng.profile.v1";
 
 export interface ProfileState {
   version: 1;
   insights: ProfileInsight[];
+  onboarding?: { version: 1; status: "skipped" | "completed" };
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -27,22 +35,22 @@ function isInsight(value: unknown): value is ProfileInsight {
     COGNITIVE_DIMENSIONS.some((dimension) => dimension === value.dimension) &&
     text(value.statement, 500) &&
     (value.origin === "ai_inference" || value.origin === "user_statement") &&
-    (value.status === "candidate" || value.status === "confirmed" || value.status === "rejected") &&
+    (value.status === "candidate" || value.status === "confirmed" || value.status === "rejected" || value.status === "archived") &&
+    (value.scope === undefined || isProfileScope(value.scope)) &&
+    (value.responseAdaptation === undefined || isResponseAdaptation(value.responseAdaptation)) &&
+    (value.currentLevel === undefined || (isTraitDimension(value.dimension) && isTraitLevel(value.currentLevel))) &&
     Array.isArray(value.evidence) &&
     value.evidence.length > 0 &&
     value.evidence.length <= 5 &&
-    value.evidence.every((source: unknown) =>
-      record(source) &&
-      text(source.conversationId, 100) &&
-      text(source.messageId, 100) &&
-      text(source.excerpt, 500)
-    )
+    value.evidence.every((source: unknown) => isEvidenceReference(source, value.dimension as ProfileInsight["dimension"]))
   );
 }
 
 function isState(value: unknown): value is ProfileState {
   return record(value) && value.version === 1 &&
-    Array.isArray(value.insights) && value.insights.every(isInsight);
+    Array.isArray(value.insights) && value.insights.every(isInsight) &&
+    (value.onboarding === undefined || (record(value.onboarding) && value.onboarding.version === 1 &&
+      (value.onboarding.status === "skipped" || value.onboarding.status === "completed")));
 }
 
 export function createProfileStore(storage: StorageAdapter) {
@@ -88,6 +96,7 @@ export function createProfileStore(storage: StorageAdapter) {
           (existing.dimension === item.dimension &&
            normalizeProfileStatement(existing.statement) === normalizeProfileStatement(item.statement) &&
            item.evidence.every((source) => existing.evidence.some((prior) =>
+             source.kind === "questionnaire" || prior.kind === "questionnaire" ? evidenceKey(prior) === evidenceKey(source) :
              prior.conversationId === source.conversationId && prior.messageId === source.messageId)))
         );
         if (!duplicate) {
@@ -101,16 +110,68 @@ export function createProfileStore(storage: StorageAdapter) {
     confirm(id: string): void {
       change(id, (item) => { item.status = "confirmed"; });
     },
+    skipQuestionnaire(): void {
+      const state = getState();
+      // Retaking and cancelling must not erase the prior completed state.
+      if (state.onboarding?.status !== "completed") state.onboarding = { version: 1, status: "skipped" };
+      save(state);
+    },
+    completeQuestionnaire(items: ProfileInsight[]): void {
+      if (!Array.isArray(items) || items.length > 5 || new Set(items.map((item) => item.dimension)).size !== items.length ||
+          !items.every((item) => isInsight(item) && isTraitDimension(item.dimension) && item.origin === "user_statement" &&
+            item.status === "confirmed" && item.evidence.every((source) => source.kind === "questionnaire"))) {
+        throw new AppError("VALIDATION_ERROR", "问卷画像无效，未保存。");
+      }
+      const state = getState();
+      if (items.some((item) => state.insights.some((existing) => existing.id === item.id))) throw new AppError("VALIDATION_ERROR", "问卷记录编号重复。");
+      for (const previous of state.insights) {
+        if (previous.status === "confirmed" && previous.evidence.every((source) => source.kind === "questionnaire") &&
+            items.some((item) => item.dimension === previous.dimension)) previous.status = "archived";
+      }
+      state.insights.push(...items);
+      state.onboarding = { version: 1, status: "completed" };
+      save(state);
+    },
+    setCurrentLevel(id: string, level: TraitLevel): void {
+      if (!isTraitLevel(level)) throw new AppError("VALIDATION_ERROR", "当前档位无效。");
+      change(id, (item) => {
+        if (!isTraitDimension(item.dimension)) throw new AppError("VALIDATION_ERROR", "背景资料不设置行为档位。");
+        item.currentLevel = level;
+      });
+    },
     reject(id: string): void {
       change(id, (item) => { item.status = "rejected"; });
     },
-    edit(id: string, statement: string): void {
+    replace(previousId: string, candidateId: string): void {
+      const state = getState();
+      const previous = state.insights.find((item) => item.id === previousId);
+      const candidate = state.insights.find((item) => item.id === candidateId);
+      if (!previous || !candidate || previous.id === candidate.id || previous.status !== "confirmed" || candidate.status !== "candidate") {
+        throw new AppError("VALIDATION_ERROR", "请选择一条已确认的旧记忆和一条待审核的新记忆。");
+      }
+      if (previous.dimension !== candidate.dimension) throw new AppError("VALIDATION_ERROR", "更新只能在同一维度内进行。");
+      previous.status = "archived";
+      candidate.status = "confirmed";
+      save(state);
+    },
+    archive(id: string): void {
+      change(id, (item) => { item.status = "archived"; });
+    },
+    setResponseAdaptation(id: string, level: ResponseAdaptation): void {
+      if (!isResponseAdaptation(level)) throw new AppError("VALIDATION_ERROR", "回答适配程度无效，请选择低、中或高。");
+      // This setting changes response support, not the reviewed statement or evidence.
+      change(id, (item) => { item.responseAdaptation = level; });
+    },
+    edit(id: string, statement: string, scope?: ProfileScope | null): void {
       const trimmed = statement.trim();
       if (!text(trimmed, 500)) throw new AppError("VALIDATION_ERROR", "画像描述不能为空或超过 500 字。");
+      if (scope !== undefined && scope !== null && !isProfileScope(scope)) throw new AppError("VALIDATION_ERROR", "画像范围无效。");
       change(id, (item) => {
         item.statement = trimmed;
         item.origin = "user_statement";
         item.status = "candidate";
+        if (scope === null) delete item.scope;
+        else if (scope !== undefined) item.scope = scope;
       });
     },
     delete(id: string): void {
@@ -121,7 +182,7 @@ export function createProfileStore(storage: StorageAdapter) {
     removeByConversation(conversationId: string): void {
       const state = getState();
       state.insights = state.insights.filter((item) =>
-        !item.evidence.some((source) => source.conversationId === conversationId)
+        !item.evidence.some((source) => source.kind !== "questionnaire" && source.conversationId === conversationId)
       );
       save(state);
     },

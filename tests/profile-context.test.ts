@@ -18,16 +18,36 @@ test("extraction reports omitted messages when its character budget is reached",
   assert.equal(getExtractionContext(null).messages.length, 0);
 });
 
-test("chat selection excludes unreviewed records and falls back to later additions without a keyword match", () => {
+test("chat selection returns no profile when the question has no relevant match", () => {
   const insights: ProfileInsight[] = Array.from({ length: 25 }, (_, index) => ({
     id: `i${index}`, dimension: "behavioral_patterns", statement: "study first",
     origin: "ai_inference", status: index === 24 ? "candidate" : index === 23 ? "rejected" : "confirmed",
     evidence: [{ conversationId: "c1", messageId: "m1", excerpt: "study first" }],
   }));
   const selected = selectChatInsights(insights, "weather");
-  assert.equal(selected.length, 20);
-  assert.equal(selected[0].id, "i22");
-  assert.equal(selected.at(-1)?.id, "i3");
+  assert.deepEqual(selected, []);
+});
+
+test("study and competition questions exclude diet and travel even without identical wording", () => {
+  const insights: ProfileInsight[] = [
+    "截止日期临近时，我常想追加功能",
+    "我偏好清淡饮食",
+    "我喜欢海边旅行",
+  ].map((statement, index) => ({
+    id: `i${index}`, dimension: "behavioral_patterns", statement,
+    origin: "user_statement", status: "confirmed",
+    evidence: [{ conversationId: "c1", messageId: `m${index}`, excerpt: statement }],
+  }));
+  assert.deepEqual(selectChatInsights(insights, "我今晚应该先复习还是继续做比赛项目？").map((item) => item.id), ["i0"]);
+});
+
+test("generic wording does not turn unrelated preferences into a match", () => {
+  const insight: ProfileInsight = {
+    id: "i1", dimension: "personality", statement: "用户希望自己更喜欢海边旅行",
+    origin: "user_statement", status: "confirmed",
+    evidence: [{ conversationId: "c1", messageId: "m1", excerpt: "我喜欢海边旅行" }],
+  };
+  assert.deepEqual(selectChatInsights([insight], "我希望你帮我复习"), []);
 });
 
 test("English keyword matches preserve an older relevant insight", () => {

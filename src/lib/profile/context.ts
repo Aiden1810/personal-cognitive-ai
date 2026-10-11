@@ -1,7 +1,8 @@
 import type { Conversation } from "../chat/store.ts";
 import type { ProfileInsight } from "../../types/cognitive.ts";
+import { matchProfileText, type RelevanceMatch } from "./relevance.ts";
 
-export const MAX_CHAT_INSIGHTS = 20;
+export const MAX_CHAT_INSIGHTS = 5;
 export const MAX_EXISTING_INSIGHTS = 30;
 export type ExistingInsight = Pick<ProfileInsight, "dimension" | "statement" | "status">;
 
@@ -10,32 +11,21 @@ export function normalizeProfileStatement(statement: string): string {
     .replace(/\s+/gu, " ").replace(/[。.！!]+$/u, "");
 }
 
-function searchTerms(value: string): Set<string> {
-  const terms = new Set<string>();
-  for (const part of value.normalize("NFKC").toLowerCase().match(/[\p{Script=Han}]+|[a-z0-9]+/gu) ?? []) {
-    if (/\p{Script=Han}/u.test(part)) {
-      // 中文按相邻两字匹配；这是轻量字面匹配，不是语义检索。
-      for (let index = 0; index < part.length - 1; index++) terms.add(part.slice(index, index + 2));
-    } else {
-      terms.add(part);
-    }
-  }
-  return terms;
+export function rankChatInsights(insights: ProfileInsight[], question: string) {
+  return insights.map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.status === "confirmed" && item.evidence.length > 0)
+    .map(({ item, index }) => {
+      // Evidence supports a statement; incidental topics in a quote are not a separate profile.
+      const match: RelevanceMatch = matchProfileText(item.statement, question);
+      return { item, index, ...match };
+    })
+    .filter(({ score }) => score > 0)
+    // 同分时优先后添加的记录；不改写本地数组或审核状态。
+    .sort((a, b) => b.score - a.score || b.index - a.index);
 }
 
 export function selectChatInsights(insights: ProfileInsight[], question: string): ProfileInsight[] {
-  const terms = searchTerms(question);
-  return insights.map((item, index) => ({ item, index }))
-    .filter(({ item }) => item.status === "confirmed")
-    .map(({ item, index }) => {
-      const matches = searchTerms(`${item.statement} ${item.evidence.map((source) => source.excerpt).join(" ")}`);
-      const score = [...terms].filter((term) => matches.has(term)).length;
-      return { item, index, score };
-    })
-    // 同分时优先后添加的记录；不改写本地数组或审核状态。
-    .sort((a, b) => b.score - a.score || b.index - a.index)
-    .slice(0, MAX_CHAT_INSIGHTS)
-    .map(({ item }) => item);
+  return rankChatInsights(insights, question).slice(0, MAX_CHAT_INSIGHTS).map(({ item }) => item);
 }
 
 export function getExtractionContext(conversation: Conversation | null, insights: ProfileInsight[] = []) {
@@ -49,7 +39,7 @@ export function getExtractionContext(conversation: Conversation | null, insights
     characters += content.length;
   }
   const existingInsights: ExistingInsight[] = insights.filter((item) =>
-    item.evidence.some((source) => source.conversationId === conversation?.id &&
+    item.evidence.some((source) => source.kind !== "questionnaire" && source.conversationId === conversation?.id &&
       messages.some((message) => message.id === source.messageId && message.content.includes(source.excerpt)))
   ).slice(-MAX_EXISTING_INSIGHTS).map(({ dimension, statement, status }) => ({ dimension, statement, status }));
   return {

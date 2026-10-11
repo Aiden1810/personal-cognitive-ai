@@ -5,7 +5,7 @@ import { getBrowserStorage } from "../storage/browser.ts";
 
 import { useSyncExternalStore } from "react";
 import { createChatStore, CHAT_STORAGE_KEY } from "./store";
-import type { ChatMessage, ChatState } from "./store";
+import type { ChatMessage, ChatState, Conversation } from "./store";
 
 interface ChatSnapshot {
   state: ChatState | null;
@@ -97,4 +97,8 @@ export function useChatData() {
         return true;
       }),
   };
+}
+
+export function getSavedConversation(id: string): Conversation | null {
+  return createChatStore(getBrowserStorage()).getState().conversations.find((item) => item.id === id) ?? null;
 }

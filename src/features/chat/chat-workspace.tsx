@@ -188,7 +188,7 @@ export function ChatWorkspace() {
         {replyError && selected && replyError.id === selected.id && (
           <div className="error-notice" role="alert">{replyError.message} 你的消息已保留，可以重试。</div>
         )}
-        <ProfileReviewPanel key={selected?.id ?? "empty"} conversation={selected} busy={!!pendingId} />
+        <ProfileReviewPanel key={selected?.id ?? "empty"} conversation={selected} conversations={conversations} busy={!!pendingId} />
         <div className="chat-message-area" aria-live="polite">
           {!selected || selected.messages.length === 0 ? (
             <div className="chat-welcome">

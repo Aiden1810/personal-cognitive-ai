@@ -3,12 +3,18 @@ import test from "node:test";
 import { createChatStore, CHAT_STORAGE_KEY, type StorageAdapter } from "../src/lib/chat/store.ts";
 import { createProfileStore, PROFILE_STORAGE_KEY } from "../src/lib/profile/store.ts";
 import { createGoalStore, GOAL_STORAGE_KEY } from "../src/lib/goals/store.ts";
+import { createResponsePreferenceStore, RESPONSE_PREFERENCES_STORAGE_KEY, DEFAULT_RESPONSE_PREFERENCES } from "../src/lib/preferences/store.ts";
+import { createAssessmentStore, ASSESSMENT_STORAGE_KEY } from "../src/lib/profile/assessment.ts";
+import { createAutoProfileStore, AUTO_PROFILE_STORAGE_KEY } from "../src/lib/profile/auto.ts";
 import { createDemoStore, STORAGE_KEY } from "../src/lib/data/store.ts";
 
 const stores = [
   { name: "chat", key: CHAT_STORAGE_KEY, read: (s: StorageAdapter) => createChatStore(s).getState(), write: (s: StorageAdapter) => createChatStore(s).createConversation() },
-  { name: "profile", key: PROFILE_STORAGE_KEY, read: (s: StorageAdapter) => createProfileStore(s).getState(), write: (s: StorageAdapter) => createProfileStore(s).reset() },
-  { name: "goals", key: GOAL_STORAGE_KEY, read: (s: StorageAdapter) => createGoalStore(s).getState(), write: (s: StorageAdapter) => createGoalStore(s).upsert("behavioral_patterns", "先列出今天的任务") },
+  { name: "profile", key: PROFILE_STORAGE_KEY, read: (s: StorageAdapter) => createProfileStore(s).getState(), write: (s: StorageAdapter) => createProfileStore(s).skipQuestionnaire() },
+  { name: "goals", key: GOAL_STORAGE_KEY, read: (s: StorageAdapter) => createGoalStore(s).getState(), write: (s: StorageAdapter) => createGoalStore(s).upsert("planning", "先列出今天的任务") },
+  { name: "preferences", key: RESPONSE_PREFERENCES_STORAGE_KEY, read: (s: StorageAdapter) => createResponsePreferenceStore(s).getState(), write: (s: StorageAdapter) => createResponsePreferenceStore(s).save(DEFAULT_RESPONSE_PREFERENCES) },
+  { name: "assessment", key: ASSESSMENT_STORAGE_KEY, read: (s: StorageAdapter) => createAssessmentStore(s).getState(), write: (s: StorageAdapter) => createAssessmentStore(s).reset() },
+  { name: "auto profile", key: AUTO_PROFILE_STORAGE_KEY, read: (s: StorageAdapter) => createAutoProfileStore(s).getState(), write: (s: StorageAdapter) => createAutoProfileStore(s).setEnabled(true, []) },
   { name: "legacy demo", key: STORAGE_KEY, read: (s: StorageAdapter) => createDemoStore(s).getState(), write: (s: StorageAdapter) => createDemoStore(s).reset() },
 ];
 
@@ -72,6 +78,6 @@ test("validation and missing records have machine-readable codes", () => {
     (error) => codedError(error, "VALIDATION_ERROR"));
   assert.throws(() => createChatStore(storage).appendMessage("missing", "user", "内容"),
     (error) => codedError(error, "NOT_FOUND"));
-  assert.throws(() => createGoalStore(storage).upsert("behavioral_patterns", " "),
+  assert.throws(() => createGoalStore(storage).upsert("planning", " "),
     (error) => codedError(error, "VALIDATION_ERROR"));
 });

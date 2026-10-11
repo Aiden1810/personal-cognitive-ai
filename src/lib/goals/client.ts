@@ -6,7 +6,7 @@ import { getBrowserStorage } from "../storage/browser.ts";
 import { useSyncExternalStore } from "react";
 import { createGoalStore, GOAL_STORAGE_KEY } from "./store";
 import type { GoalState } from "./store";
-import type { CognitiveDimension } from "../../types/cognitive";
+import type { CognitiveDimension, GoalWillingness, TraitLevel } from "../../types/cognitive";
 
 interface Snapshot {
   state: GoalState | null;
@@ -23,6 +23,8 @@ const listeners = new Set<() => void>();
 function publish() {
   listeners.forEach((listener) => listener());
 }
+
+export function refreshGoalData() { refresh(); publish(); }
 
 function refresh() {
   initialized = true;
@@ -78,8 +80,8 @@ export function useGoalData() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return {
     ...data,
-    upsert: (dimension: CognitiveDimension, intention: string) =>
-      execute((store) => store.upsert(dimension, intention)),
+    upsert: (dimension: CognitiveDimension, intention: string, willingness?: GoalWillingness | null, targetLevel?: TraitLevel | null) =>
+      execute((store) => store.upsert(dimension, intention, willingness, targetLevel)),
     pause: (id: string) => execute((store) => { store.pause(id); return true; }),
     resume: (id: string) => execute((store) => { store.resume(id); return true; }),
     deleteGoal: (id: string) => execute((store) => { store.delete(id); return true; }),
