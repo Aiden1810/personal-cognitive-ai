@@ -20,6 +20,9 @@ import { useResponsePreferences } from "@/lib/preferences/client";
 import { ResponsePreferencePanel } from "./response-preferences";
 import { ConversationListItem } from "./conversation-list-item";
 import { ChatMessageContent } from "./message-content";
+import { requestChatSuggestions } from "@/lib/chat/suggestions-api";
+import { selectChatContext } from "@/lib/chat/context";
+import { ChatSuggestionCard } from "./chat-suggestion-card";
 
 export function ChatWorkspace() {
   const {
@@ -28,6 +31,7 @@ export function ChatWorkspace() {
     error,
     createConversation,
     appendMessage,
+    setSuggestions,
     deleteConversation,
     reset,
   } = useChatData();
@@ -50,8 +54,11 @@ export function ChatWorkspace() {
   const [copyStatus, setCopyStatus] = useState<{ id: string; text: string } | null>(null);
   const [autoMessage, setAutoMessage] = useState<{ id: string; message: string; error: boolean } | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
+  const [semanticEnabled, setSemanticEnabled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [referencesOpen, setReferencesOpen] = useState(false);
+  const [suggestionChecks, setSuggestionChecks] = useState<Record<string, { pending: boolean; error?: string }>>({});
+  const suggestionPending = useRef(new Set<string>());
   const [requestContexts, setRequestContexts] = useState<Record<string, {
     messageId: string;
     selection: ChatContextSelection;
@@ -107,6 +114,26 @@ export function ChatWorkspace() {
     } finally { autoPendingRef.current = false; setAutoBusy(false); }
   }
 
+  async function checkSuggestions(id: string, reply: ChatMessage, messages: ChatMessage[], selection?: ChatContextSelection) {
+    if (suggestionPending.current.has(reply.id) || reply.suggestions !== undefined) return;
+    suggestionPending.current.add(reply.id);
+    setSuggestionChecks((previous) => ({ ...previous, [reply.id]: { pending: true } }));
+    try {
+      const context = selection ?? selectChatContext(messages,
+        usableProfileInsights(profileState?.insights ?? [], conversations), goalState?.goals ?? []);
+      const suggestions = await requestChatSuggestions(messages, reply.content, context);
+      const current = getSavedConversation(id)?.messages.find((item) => item.id === reply.id);
+      // Deleting a chat while detection is pending must not recreate its data.
+      if (!current || current.suggestions !== undefined) return;
+      if (!setSuggestions(id, reply.id, suggestions)) throw new Error("建议保存失败，聊天回复已保留。");
+    } catch (failure) {
+      setSuggestionChecks((previous) => ({ ...previous, [reply.id]: { pending: false, error: failure instanceof Error ? failure.message : "操作建议检测失败。" } }));
+    } finally {
+      suggestionPending.current.delete(reply.id);
+      setSuggestionChecks((previous) => ({ ...previous, [reply.id]: { ...previous[reply.id], pending: false } }));
+    }
+  }
+
   async function fetchReply(id: string, messages: ChatMessage[]) {
     if (pendingRef.current) return;
     pendingRef.current = true;
@@ -119,14 +146,17 @@ export function ChatWorkspace() {
         : previous);
     }
     try {
+      let replyContext: ChatContextSelection | undefined;
       const insights = usableProfileInsights(profileState?.insights ?? [], conversations);
       const goals = (goalState?.goals ?? []).filter((goal) => goal.status === "active");
       const reply = await requestAssistantReply(messages, insights, goals, undefined, (selection) => {
+        replyContext = selection;
         setRequestContexts((previous) => ({ ...previous, [id]: { messageId, selection, phase: "pending" } }));
-      }, preferences.state?.preferences, false, preferences.state?.personalContext);
+      }, preferences.state?.preferences, semanticEnabled, preferences.state?.personalContext);
       const savedReply = appendMessage(id, "assistant", reply);
       if (!savedReply) throw new Error("AI 回复未能保存，请检查浏览器存储后重试。");
       markContext("complete");
+      void checkSuggestions(id, savedReply, messages, replyContext);
       void runAutoExtraction(id);
     } catch (failure) {
       markContext("failed");
@@ -305,6 +335,21 @@ export function ChatWorkspace() {
             <div className="chat-tools-body">
               <ResponsePreferencePanel busy={!!pendingId} />
               <Link className="chat-memory-link" href="/profile#personal-context">个人背景与自定义回答要求 ↗</Link>
+              <details className="response-preferences"><summary><strong>AI 操作建议</strong><span>需你确认</span></summary>
+                <p className="chat-context-note">回复完成后，会把这次发言、刚生成的回复和本次已参考的相关记忆与目标发送给 DeepSeek，检查是否适合创建目标、核对归档记忆或记录行动。卡片只打开确认表单，不自动保存或归档。</p>
+              </details>
+              <details className="response-preferences semantic-retrieval-settings">
+                <summary><strong>记忆匹配</strong><span>{semanticEnabled ? "增强（实验）" : "默认"}</span></summary>
+                <div className="semantic-retrieval-body">
+                  <label className="semantic-retrieval-switch">
+                    <input type="checkbox" checked={semanticEnabled} disabled={!!pendingId}
+                      onChange={(event) => setSemanticEnabled(event.target.checked)} />
+                    尝试增强匹配（实验）
+                  </label>
+                  <p className="chat-context-note">需要先准备本地模型；不可用时自动使用默认匹配。刷新后恢复默认。</p>
+                  <details className="simple-more"><summary>技术说明</summary><p className="chat-context-note">使用关键词与本地语义向量匹配问题、已确认画像和目标，不读取全部历史聊天。实验仍可能漏选或误选。</p></details>
+                </div>
+              </details>
               <ProfileReviewPanel key={selected?.id ?? "empty"} conversation={selected} conversations={conversations} busy={!!pendingId || autoBusy} />
               {autoMessage && !autoMessage.error && selected?.id === autoMessage.id && <p className="chat-muted" role="status">{autoMessage.message}</p>}
               {pendingMemories > 0 && <Link className="chat-memory-link" href="/profile#pending-memories">到我的画像查看全部待确认记忆 ↗</Link>}
@@ -325,7 +370,7 @@ export function ChatWorkspace() {
                 </div>
               </div>
             ) : (
-              selected.messages.map((message) => {
+              selected.messages.map((message, index) => {
                 const contextForMessage = selected && requestContexts[selected.id]?.messageId === message.id ? requestContexts[selected.id] : null;
                 const memoryCount = contextForMessage ? (contextForMessage.selection.insights.length + contextForMessage.selection.goals.length) : 0;
                 return (
@@ -343,6 +388,18 @@ export function ChatWorkspace() {
                         )}
                       </span>
                       <ChatMessageContent role={message.role} content={message.content} />
+                      {message.role === "assistant" && <>
+                        {message.suggestions?.map((suggestion) => <ChatSuggestionCard key={suggestion.id} suggestion={suggestion}
+                          conversationId={selected.id} messageId={message.id} conversations={conversations} busy={!!pendingId} />)}
+                        {suggestionChecks[message.id]?.pending && <p className="chat-suggestion-check" role="status">正在检查是否有适合的操作建议…</p>}
+                        {message.suggestions === undefined && !suggestionChecks[message.id]?.pending && selected.messages[index - 1]?.role === "user" && <div className="chat-suggestion-check">
+                          {suggestionChecks[message.id]?.error && <p role="alert">{suggestionChecks[message.id].error} 回复已保留。</p>}
+                          <button type="button" className="text-button" disabled={!!pendingId || !!profileError || !!goalError}
+                            onClick={() => void checkSuggestions(selected.id, message, selected.messages.slice(0, index))}>
+                            {suggestionChecks[message.id]?.error ? "重试操作建议" : "检查操作建议"}
+                          </button>
+                        </div>}
+                      </>}
                       {message.role === "assistant" && (
                         <button type="button" className="chat-copy-button" onClick={() => void copyReply(message)}
                           aria-label="复制知衡的回复">

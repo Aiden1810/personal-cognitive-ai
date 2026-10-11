@@ -1,7 +1,8 @@
 import type { ChatMessage } from "./store.ts";
 import type { ProfileInsight, UserGoal } from "../../types/cognitive.ts";
-import { selectChatContext, type ChatContextSelection } from "./context.ts";
+import { retrievalQuery, selectChatContext, type ChatContextSelection } from "./context.ts";
 import type { ResponsePreferences, PersonalContext } from "../preferences/store.ts";
+import { requestSemanticMatches } from "../retrieval/api.ts";
 import { AppError } from "../errors.ts";
 import { CHAT_API_ERROR_CODES, type ChatApiErrorCode, type ChatRequest, type ChatResponse } from "../../types/chat-api.ts";
 
@@ -50,8 +51,16 @@ export async function requestAssistantReply(
     throw new AppError("VALIDATION_ERROR", "请先发送一条用户消息。");
   }
   const messages = recentMessages(history);
-  const selection = selectChatContext(messages, insights, goals, preferences, undefined, personalContext);
-  void semanticEnabled;
+  let selection = selectChatContext(messages, insights, goals, preferences, undefined, personalContext);
+  if (semanticEnabled && (insights.length > 0 || goals.length > 0)) {
+    try {
+      const scores = await requestSemanticMatches(retrievalQuery(messages).question,
+        selection.profileExcludedByRequest ? [] : insights, goals, fetcher);
+      selection = selectChatContext(messages, insights, goals, preferences, scores, personalContext);
+    } catch (error) {
+      selection.retrieval = { method: "keyword", fallbackReason: error instanceof Error ? error.message : "语义检索失败，本次使用关键词检索。" };
+    }
+  }
   onContextSelected?.(selection);
   const input: ChatRequest = {
     messages,

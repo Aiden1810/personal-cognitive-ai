@@ -5,6 +5,7 @@ import { matchProfileText, searchTerms } from "../profile/relevance.ts";
 import { GOAL_WILLINGNESS_DETAILS } from "../goals/willingness.ts";
 import { activePersonalContext, type ResponsePreferences, type PersonalContext } from "../preferences/store.ts";
 import { PROFILE_SCOPE_DETAILS } from "../profile/scope.ts";
+import { hybridMatch, type SemanticMatches } from "../retrieval/hybrid.ts";
 import { TRAIT_LEVEL_DETAILS } from "../profile/questionnaire.ts";
 
 export const MAX_CHAT_GOALS = 2;
@@ -91,14 +92,13 @@ export function selectChatContext(
   insights: ProfileInsight[],
   goals: UserGoal[],
   preferences?: ResponsePreferences,
-  semantic?: undefined,
+  semantic?: SemanticMatches,
   personalContext?: PersonalContext,
 ): ChatContextSelection {
-  void semantic;
   const query = retrievalQuery(history);
   const selected: ChatContextSelection = { insights: [], goals: [], reasons: [], querySource: query.source, characters: 0, omittedByBudget: 0 };
   if (preferences) selected.preferences = { ...preferences };
-  selected.retrieval = { method: "keyword" };
+  selected.retrieval = semantic ? { method: "hybrid", model: semantic.model } : { method: "keyword" };
   const latest = history.at(-1);
   const personal = activePersonalContext(personalContext);
   selected.backgroundExcludedByRequest = latest?.role === "user" && /(?:不要|不需要|别)(?:再)?(?:参考|使用|读取|调用)[^。！？\n]{0,12}(?:个人背景|我的背景|背景资料)/u.test(latest.content);
@@ -107,7 +107,7 @@ export function selectChatContext(
   if (active) selected.personalContext = active;
   selected.profileExcludedByRequest = latest?.role === "user" &&
     /(?:不要|不需要|别)(?:再)?(?:(?:参考|使用|调用|读取)[^。！？\n]{0,15}|(?:我的|个人|用户)?)(?:画像|个人记忆)/u.test(latest.content);
-  const rankedGoals = goals.map((item, index) => ({ item, index, ...matchProfileText(item.intention, query.question) }))
+  const rankedGoals = goals.map((item, index) => ({ item, index, ...hybridMatch(item.intention, query.question, semantic?.goals[item.id], !!semantic) }))
     .filter(({ item, score }) => item.status === "active" && score > 0)
     .sort((a, b) => b.score - a.score || b.index - a.index).slice(0, MAX_CHAT_GOALS);
 
@@ -118,14 +118,14 @@ export function selectChatContext(
       continue;
     }
     selected.goals.push({ ...match.item });
-    selected.reasons.push({ kind: "goal", id: match.item.id, terms: match.terms.slice(0, 3), topics: match.topics });
+    selected.reasons.push({ kind: "goal", id: match.item.id, terms: match.terms.slice(0, 3), topics: match.topics, ...(match.semanticSimilarity !== undefined ? { semanticSimilarity: match.semanticSimilarity } : {}) });
   }
 
   const seen = new Set<string>();
   const rankedInsights = (selected.profileExcludedByRequest ? [] : insights)
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => item.status === "confirmed" && item.evidence.length > 0)
-    .map(({ item, index }) => ({ item, index, ...matchProfileText(item.statement, query.question) }))
+    .map(({ item, index }) => ({ item, index, ...hybridMatch(item.statement, query.question, semantic?.insights[item.id], !!semantic) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || b.index - a.index);
   for (const match of rankedInsights) {
@@ -138,7 +138,7 @@ export function selectChatContext(
       continue;
     }
     selected.insights.push(item);
-    selected.reasons.push({ kind: "insight", id: item.id, terms: match.terms.slice(0, 3), topics: match.topics });
+    selected.reasons.push({ kind: "insight", id: item.id, terms: match.terms.slice(0, 3), topics: match.topics, ...(match.semanticSimilarity !== undefined ? { semanticSimilarity: match.semanticSimilarity } : {}) });
   }
   // Memory selection retains its original budget; free text has separate field limits.
   selected.characters = serializeChatContext(selected.insights, selected.goals, preferences, selected.personalContext).length;

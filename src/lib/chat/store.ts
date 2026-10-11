@@ -1,6 +1,8 @@
+import { isChatSuggestion, type ChatSuggestion } from "./suggestions.ts";
 import { AppError } from "../errors.ts";
 import { readStorageItem, writeStoredJson, type StorageAdapter } from "../storage/storage.ts";
 export type { StorageAdapter } from "../storage/storage.ts";
+
 export const CHAT_STORAGE_KEY = "zhiheng.chat.v1";
 
 export interface ChatMessage {
@@ -8,6 +10,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  suggestions?: ChatSuggestion[];
 }
 
 export interface Conversation {
@@ -38,8 +41,19 @@ function isMessage(value: unknown): value is ChatMessage {
     (value.role === "user" || value.role === "assistant") &&
     typeof value.content === "string" &&
     value.content.trim().length > 0 &&
-    isTimestamp(value.createdAt)
+    isTimestamp(value.createdAt) &&
+    (value.suggestions === undefined || (value.role === "assistant" && Array.isArray(value.suggestions) &&
+      value.suggestions.length <= 3 && value.suggestions.every(isChatSuggestion) &&
+      new Set(value.suggestions.map((item: ChatSuggestion) => item.id)).size === value.suggestions.length &&
+      new Set(value.suggestions.map((item: ChatSuggestion) => item.kind)).size === value.suggestions.length))
   );
+}
+
+function validSuggestionSources(messages: ChatMessage[]): boolean {
+  return messages.every((message, index) => (message.suggestions ?? []).every((suggestion) => {
+    const source = messages[index - 1];
+    return source?.role === "user" && source.id === suggestion.sourceMessageId && source.content.includes(suggestion.excerpt);
+  }));
 }
 
 function isConversation(value: unknown): value is Conversation {
@@ -50,7 +64,7 @@ function isConversation(value: unknown): value is Conversation {
     isTimestamp(value.createdAt) &&
     isTimestamp(value.updatedAt) &&
     Array.isArray(value.messages) &&
-    value.messages.every(isMessage)
+    value.messages.every(isMessage) && validSuggestionSources(value.messages)
   );
 }
 
@@ -121,6 +135,29 @@ export function createChatStore(storage: StorageAdapter) {
       conversation.updatedAt = now;
       persist(state);
       return message;
+    },
+    setSuggestions(id: string, messageId: string, suggestions: ChatSuggestion[]): void {
+      const state = getState();
+      const conversation = state.conversations.find((item) => item.id === id);
+      const message = conversation?.messages.find((item) => item.id === messageId);
+      if (!conversation || message?.role !== "assistant") throw new AppError("VALIDATION_ERROR", "建议只能保存到有效的助手回复。");
+      if (message.suggestions !== undefined) throw new AppError("CONFLICT", "这条回复的建议已生成，不重复覆盖。");
+      const updated = { ...message, suggestions };
+      if (!isMessage(updated) || suggestions.some((item) => item.status !== "pending") ||
+        !validSuggestionSources(conversation.messages.map((item) => item.id === messageId ? updated : item))) {
+        throw new AppError("VALIDATION_ERROR", "建议来源或内容无效，未保存。");
+      }
+      message.suggestions = suggestions;
+      persist(state);
+    },
+    setSuggestionStatus(id: string, messageId: string, suggestionId: string, status: "dismissed" | "completed"): void {
+      if (status !== "dismissed" && status !== "completed") throw new AppError("VALIDATION_ERROR", "建议状态无效。");
+      const state = getState();
+      const message = state.conversations.find((item) => item.id === id)?.messages.find((item) => item.id === messageId);
+      const suggestion = message?.suggestions?.find((item) => item.id === suggestionId);
+      if (!suggestion || suggestion.status !== "pending") throw new AppError("CONFLICT", "建议已处理或不存在。");
+      suggestion.status = status;
+      persist(state);
     },
     deleteConversation(id: string): void {
       const state = getState();
