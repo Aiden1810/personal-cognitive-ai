@@ -21,7 +21,7 @@
 | 5 | `fd64b32` — `feat: add reviewed AI actions and opt-in semantic retrieval` | 操作建议、已有行动记录代码、默认关闭的语义实验、评估脚本与合成案例、依赖与测试 |
 | 6 | `7cb6320` — `feat: add optional accounts and explicit backup snapshots` | account/auth/backup/cloud、`src/proxy.ts`、`database/schema.sql`、`.env.example`、Supabase 依赖与快照兼容测试 |
 | 7 | `docs: align project handoffs with current capability boundaries` | README、AGENTS、产品/比赛/交接/功能记录、历史开发记录、本文 |
-| 8 | `docs: archive historical contest outlines and speaking draft` | 根目录三份纯文字比赛草稿，注明历史版本及未验收边界；PPT/PDF 跳过 |
+| 8 | `docs: record contest materials pending privacy review` | 独立比赛材料检查清单；五份原文件均跳过，保留本机 |
 
 共享文件有依赖：第 2 片先提交错误处理；第 3 片加入画像所需的关键词资料选择与聊天契约；第 4 片提交 UI；第 5 片再接入建议卡片和语义请求。备份兼容测试随第 6 片补齐。画像审核组件调用所需的 `conversations` 参数随第 3 片提前暂存。每片均可单独查看差异，后片依赖前片。
 
@@ -37,10 +37,11 @@
 
 - `知衡-参赛项目简报-最终版.pptx`：14 页、14 页备注及 1 项嵌入媒体；媒体来源与隐私范围未能确认，跳过整个文件。
 - `知衡-参赛项目简报-最终版.pdf`：14 页、14 项嵌入图像；仅提取文本不能确认截图隐私，跳过整个文件。
+- `参赛简报PPT大纲.md`、`演讲脚本.md`、`知衡参赛简报PPT完整版.md`：含原话、对比回答或行动自评示意，未明确可验证的合成来源，跳过。详情见[材料检查清单](contest-materials-review-2026-10-11.md)。
 - `output/` 全部：包括界面截图、比赛截图、backup JSON、渲染图与过程输出。本轮不建立白名单，不把文件名中的 synthetic 当成隐私验证。
 - `private-data/` 与 `.env.local`：继续只留本机，不能强制暂存。
 
-三份根目录文字材料是旧草稿，保留为历史记录，不代表本轮已完成新的正式五项画像 PPT 或讲稿；旧比赛名称、分工和时长不能直接沿用。
+三份根目录文字材料是旧草稿，本轮未提交或改写其正文，不代表本轮已完成新的正式五项画像 PPT 或讲稿；旧比赛名称、分工和时长不能直接沿用。
 
 ## 能力与后续 PR 边界
 
