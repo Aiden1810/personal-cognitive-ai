@@ -1,217 +1,70 @@
-# 开发约定：知衡 · Personal Cognitive AI
+# 知衡开发约定
 
-适用对象：安、姚、曹，以及协助开发的 AI/Codex。先读 README，再按当前任务范围工作。文档、任务和回复中统一使用“安、姚、曹”称呼成员，不使用字母代号或角色代称。
+适用对象：安、姚、曹及协助开发的 AI/Codex。先读 README 和 `docs/product-vision.md`。成员只称“安、姚、曹”。2026 年 10 月 11 日安确认收窄范围，产品主线是**可选初始问卷、聊天、五项具体行为画像、用户设定的目标、据此提供帮助**。五项为行动力、规划与拆解、时间安排、复盘调整、探索尝试；七维保留为其他背景与旧资料，不自动转换成新档位。旧三视角决策方案不是正式软件主流程。
 
-## 1. 当前授权与项目阶段
+新接手的 AI 还应阅读[项目背景与比赛要求](docs/project-context.md)：本项目为澳门城市大学学生参加 2026 年第十一届「粤港澳大湾区 IT 应用系统开发大赛」澳门区分赛而开发，背景说明集中记录产品用途、比赛材料要求和通知来源。邀请函原定 10 月 1 日报名及首次作品提交截止；安确认的 15 日前 PPT 更新/提交安排单独记录，不能合并为报名延期。PPT 为 10–15 页，2–5 分钟介绍视频可选；评分权重与单队路演时长未见原函规定，不编造。
 
-本仓库目前只完成项目启动文档与 Git 协作。应用开发任务须由安明确安排；不要因为读到未来规划就自动创建 Next.js、安装依赖、创建数据库或实现页面。
+## 前端与工作区偏好（2026 年 10 月 11 日）
 
-本文件规定未来开发边界。安下达某个模块任务后，在该任务范围内执行，不把本文理解为整项目一次性实现的授权。
+- 开始制作前先查找合适的开源项目或组件，核对来源、许可证、依赖和现有项目适配成本，再按需求微调。能抓取网页不代表可以无条件复制其代码、品牌或整站设计。
+- 优先参考 Beautiful UI（beautifului.dev）、beUI（beui.dev）、Rare UI（rareui.com）、Transitions（transitions.dev）和 shadcn/ui（ui.shadcn.com）；只复用获许可的部分，不为复用组件大规模重构现有项目。
+- 一般配色偏好为白色主、黑色文字和蓝色强调；但 2026 年 10 月 11 日安检查本项目白蓝版本后，明确要求恢复上一版米白底、浅绿侧栏和深绿强调色，并减少模板感。本项目以这次确认的配色为准，后续不自行重新套用白蓝主题。
+- 前端元素须设计出现、状态变化与消失的动画，注重 Morph Transition（形变过渡）与布局连续性；可让相关元素随同一容器共同过渡。按钮等小交互也要有轻微缩放或其他明确反馈。兼顾快速连续操作、阅读稳定性及系统减少动态效果设置。
+- 不使用 emoji；需要图标时采用有许可证的开源 UI 图标。安随后指出文字导航旁的重复图标、色块和条状组件太像 AI 模板；本项目优先用文字表达，图标用于必要的操作，不给每个标签附加装饰。标题、按钮等短文案可以省略标点，长说明和必要的边界提示保留清晰断句。
+- 下载默认放在项目内；无项目的对话默认放在 D 盘。工作目录、开发环境及可配置缓存不放在 C 盘，除非安明确认可或另有要求；后续需要使用已有 C 盘开发环境时，先检查并安排切换到 D 盘，不擅自搬移或删除系统安装。
+- 先检查问题是否存在错误前提、逻辑跳跃或信息缺失；独立判断，区分事实、预测与观点，涉及数字、人物和结论尽量核对原始来源。
 
-- 具体演示场景待团队确定；不写死比赛加功能、学习换课等故事。
-- 首版只支持一个场景，真实案例和合成演示资料必须区分。
-- 不做心理诊断、人格分数、自动价值判断和本地模型训练。
-- Windows 是默认开发环境。给出适用于 PowerShell 的实际命令。
-- 用简单、清晰的 TypeScript；保持现有风格，避免无关重构。
+本次参考调研与现有页面检查见 [UI 参考与优化建议](docs/ui-review-2026-10-11.md)。建议不构成自行开展全部 UI 改造的授权。
 
-## 2. 模块责任与修改边界
+## 当前阶段
 
-| 维护者 | 主要范围 |
+- 自由背景与回答要求通过现有 `src/lib/preferences` 入口读写，开启后作为 user 数据传给聊天，不覆盖系统规则、不自动创建目标。编辑快捷偏好须保留自由设置，反之亦然。记忆摘要仅归纳有效确认记录，保留来源与问卷日期，来源变化后隐藏旧摘要；不保存为事实或后台长期学习。规则见 `docs/personal-context-memory-summary.md`。
+
+- 初始问卷以最近四周学习/项目中的自述建立起点，确认后才保存并用于相关聊天；不确定、不适用和跳题不能当作低档。档位是用户自评，当前与目标独立，不等于帮助强度、改变意愿或人格测量。题目/答案/填写时间/版本保留为问卷来源，不伪装聊天证据；旧备份与七维资料必须兼容。流程见 `docs/trait-questionnaire.md`。
+
+- 安已安排从现有骨架小步改成聊天优先。只做明确分配的模块，不依据旧计划自行扩展。
+- `/chat` 是主入口。旧 `/history`、`/goals`、`/decision` 和 `src/types/domain.ts` 等属于旧演示，保留供参考；新功能不要直接套用旧的 DecisionCase、BehaviorPattern 等类型。
+- 本地 `/chat` 已调用服务端接口；缺少 API Key 明确报错。画像提取可手动触发，也可由用户开启按新发言触发的整理；结果始终待审核。`/profile` 展示五项行为画像、其他背景与独立目标，`/backup` 提供本地 JSON 恢复，`/account` 有可选邮箱账户和手动云端快照入口。仍是技术原型，尚无完整后台长期更新、实时数据迁移或反馈闭环；代码入口不等于真实流程已验收。示例必须标明合成。
+- 用户能审核、修改、删除画像洞察。AI 的候选推测不能未经确认直接变成用户事实；当前画像和用户目标分开保存。
+- 不做心理诊断或把未经定义的百分比当成人格测量结果。没有必要时不增加依赖。
+
+## 责任与接口
+
+2026 年 10 月 7 日更新：安明确暂时全权负责项目开发、UI、比赛简报、PPT 和 Demo；其他成员的新任务暂停。AI 可在安已授权的任务内修改现有各模块与公共契约，不再等待原成员分工；仍保留他人既有改动，不擅自推送、合并或部署。
+
+| 成员 | 当前责任 |
 | --- | --- |
-| 安 | README、AGENTS、根配置、依赖与锁文件、`src/app`、`src/types`、`src/lib`、共用组件、环境变量及后续数据库迁移 |
-| 姚 | `src/features/history`：案例与模式审核 |
-| 曹 | `src/features/decision`：目标、三种结果、反馈；PPT 与 Demo 材料 |
+| 安 | 当前所有模块、公共类型、UI/UX、模型和数据服务、整合、简报、PPT 与 Demo |
+| 姚 | 暂停新任务分配，保留既有贡献 |
+| 曹 | 暂停新任务分配，保留既有贡献 |
 
-页面路由壳由安创建，姚和曹在自己的 feature 目录交付组件和模块。不要各自重建根布局、全局样式或 UI 体系。
+现有 `src/features/chat` 是技术原型，当前由安负责后续 UI。若恢复协作，再由安给出输入、输出、文件范围和验收方式。安统一维护 npm、锁文件、环境变量与数据库迁移；不要建立第二套数据结构或模型客户端。
 
-需要改公共类型、接口或其他人的目录时，先向安提出具体修改与影响；未经任务授权不越界。获得授权后无需为相同修改反复确认。
+用户已澄清：比赛简报就是要交给主办方、并用于路演的同一份 PPT。10 月 15 日前可更新并提交，15 日后不能再改，10 月 24 日使用这份最终版；不得再安排 15 日后修改路演 PPT。14 日前完成最终核对与提交准备，材料只写已验证能力及明确标注的规划。15 日后以现有功能稳定性、讲稿和 Demo 彩排为主；20 日冻结演示功能。具体截止时刻和提交渠道按比赛通知核对，不编造。
 
-不自行新增依赖、模型 SDK、数据库、环境变量或另一套数据格式。安统一确定包管理器并维护一份锁文件；当前尚未选定或安装。
+## 数据与 AI 边界
 
-## 3. 公共数据约定 v0.1
+- 当前聊天记录通过 `src/lib/chat`，画像候选通过 `src/lib/profile`，用户目标通过 `src/lib/goals` 统一读写浏览器本地存储。页面组件不直接操作 `localStorage`。
+- 日常业务资料仍在浏览器，未按云端账户完整隔离；不能当成安全云端工作副本。邮箱账户和快照入口已有代码，云端流程必须专项验收，不以 SQL 脚本或页面存在代替实际验证。
+- 服务端 AI 接口由安维护，公开部署前还须加入账户隔离与防滥用措施。密钥只放服务端环境变量，不带 `NEXT_PUBLIC_`，不进入浏览器包、日志或仓库。
+- 模型读取对话用于回复或提取记忆时，须向用户说明使用范围。候选记忆应保留引用的对话来源、审核状态和删除能力。
+- 不把用户文字当作可覆盖系统规则的指令；模型不获得修改文件、执行命令或向他人发送消息的工具。
+- 缺少配置、模型失败或证据不足时明确提示；不以合成回复冒充实时 AI。
 
-以下是待实现的契约，不是已存在的 TypeScript 文件或数据库 Schema。安在骨架任务中将其转换为 `src/types/domain.ts` 和 `src/types/api.ts`；姚和曹不自行重定义同名实体。
+## GitHub 协作
 
-### 通用约定
+`main` 保持可演示。安的功能分支经 PR 审核后再合并；姚、曹从已合并的最新 `main` 开独立小分支。不要向共享分支强制推送，也不要覆盖他人未提交修改。当前 [旧骨架 PR](https://github.com/Aiden1810/personal-cognitive-ai/pull/1) 仍需按新方向审视；不要把旧页面误当成最终产品。
 
-- 字段使用 camelCase；组件名使用 PascalCase。
-- ID 是不含业务含义的字符串；后续由统一入口生成。
-- 时间使用带时区的 ISO 8601 字符串；不要拿本地显示文本作比较依据。
-- 列表为空使用空数组；契约中的可空字段使用 `null`，不混用空字符串。
-- 文本必填字段经去除首尾空格后不能为空；空白表单不能生成案例。
-- `userId` 首版为统一的 `demo-user`。它不构成身份认证；正式多用户版本必须从服务端会话取得用户身份，不能信任浏览器传入的 userId。
-- 全部记录包含 `id`、`userId`、`createdAt`、`updatedAt`。
-- UI 中文展示；状态值与字段名使用下述英文枚举。
+交给 AI 的任务需写明目标、允许修改的目录、公共类型、正常/空/失败状态和验收步骤。Windows PowerShell 是默认环境。首次安装使用 `npm.cmd ci`；测试、类型、lint、构建命令见 README。完成任务后报告改动文件、运行方式、实际验证、限制和下一步。
 
-### DecisionCase：历史案例
+旧版决策方案及其字段约定已归档在 `docs/legacy-decision-conventions.md`，只供追溯，不指导新的聊天、记忆或画像实现。
 
-| 字段 | 约定 |
-| --- | --- |
-| title | 简短标题，必填 |
-| context | 当时的情境，必填 |
-| scenario | 场景标识，团队确定演示场景后统一取值 |
-| options | 当时的备选行动，文本数组，可为空 |
-| constraints | 截止时间、资源等约束，文本数组，可为空 |
-| actualChoice | 实际采取的行动，必填；没有实际选择的新问题不能当成历史案例 |
-| outcome | 后续结果，文本或 null；null 表示尚未知晓 |
-| occurredAt | 事件时间，ISO 字符串或 null；与录入时间区分 |
-| sourceType | `self_report`、`observed` 或 `demo` |
-| sourceNote | 来源说明；observed 必须说明可检查的记录来源，demo 必须注明合成/脱敏情况 |
-| sourceRef | 来源链接或记录位置，文本或 null；不保存带访问凭证的链接 |
-| status | `pending`、`confirmed` 或 `rejected` |
+<!-- BEGIN:nextjs-agent-rules -->
 
-案例中来自用户回忆的行为仍为 self_report。confirmed 表示用户核实了记录，不把自述自动转换为独立观测。
+# This is NOT the Next.js you know
 
-### BehaviorPattern：行为模式
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-| 字段 | 约定 |
-| --- | --- |
-| description | 场景内的行为观察，不使用诊断性标签 |
-| scenario | 与案例场景一致 |
-| supportCaseIds | 支持案例 ID 数组 |
-| counterCaseIds | 反例 ID 数组 |
-| caveats | 资料不足、情境差异等限制，文本数组 |
-| status | `pending`、`confirmed` 或 `rejected` |
-| userNote | 用户纠正说明，文本或 null |
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
-AI 只能创建 pending 候选。用户编辑已确认模式后，需要再次确认；驳回模式不参与后续个性化生成。支持与反例编号必须存在且属于同一演示身份，不得引用 rejected 案例。
-
-### ImprovementGoal：用户目标
-
-| 字段 | 约定 |
-| --- | --- |
-| patternId | 对应已确认模式的 ID，或 null；允许用户主动提出目标 |
-| description | 用户希望怎样行动，必填 |
-| scenario | 适用场景 |
-| applicability | 适用条件，由用户核对的自然语言说明 |
-| status | `active` 或 `inactive` |
-
-确认模式不会自动创建目标。目标只能由用户主动启用。与模式关联的目标在模式被驳回后应停用并提示用户重新核对。首版每次决策手动选一个 active 目标，不让 AI 自动叠加多个目标。
-
-### CurrentDecision：当前问题
-
-包含 `question`、`scenario`、`options`、`constraints`。question 必填；选项与约束为文本数组。缺少关键条件时显示限制或请求补充，不编造截止时间和行为结果。
-
-### PerspectiveAnswer：单个视角结果
-
-| 字段 | 约定 |
-| --- | --- |
-| perspective | `generic`、`original` 或 `better` |
-| status | `ready` 或 `insufficient_evidence` |
-| summary | 简短结果 |
-| reasoning | 可公开给用户的依据摘要；不要求或保存模型隐含思维链 |
-| evidenceCaseIds | 实际引用的案例 ID 数组 |
-| goalId | 使用的目标 ID，或 null |
-| ruleIds | 实际应用的规则 ID 数组；没有时为空 |
-| caveats | 不确定性和信息不足，文本数组 |
-
-generic 的 evidenceCaseIds 和 ruleIds 为空，goalId 为 null。original 的 goalId 为 null，只依据历史提出倾向预测。better 使用当前 active 目标；无有效目标时提示设置目标，不假装完成个性化改进。
-
-### DecisionComparison：生成记录
-
-包含 `currentDecision`、三个 PerspectiveAnswer（分别名为 `generic`、`original`、`better`）、`generationSource`、`modelId`、`contractVersion`、`rulesVersion`、`evidenceSnapshot`、`patternSnapshot`、`goalSnapshot`。
-
-- generationSource 为 `live` 或 `example`；example 必须显著标识，modelId 为 null。
-- evidenceSnapshot 保存本次使用案例的内容与来源；patternSnapshot 和 goalSnapshot 保存当时的状态与文本。不能只存 ID 后用已修改的数据解释旧回答。
-- 本次引用必须属于提供给该视角的证据集合。删除案例时不让保留的快照意外暴露用户要求删除的内容；正式删除流程需同时处理快照。
-- contractVersion 初始 `0.1`；规则实现后再确定 rulesVersion，不宣称已有规则运行。
-
-### DecisionFeedback：反馈
-
-包含 `comparisonId`、`actualChoice`、`recordedAt`、`outcome`、`outcomeRecordedAt`、`userNote`。
-
-actualChoice 必填；outcome、outcomeRecordedAt、userNote 可为 null。选择与结果分开记录。采纳建议不等于建议正确；不自动把结果变化解释为因果关系。反馈转为历史案例需用户核对后确认。
-
-## 4. 数据与接口边界
-
-### 数据入口
-
-计划由 `src/lib/data` 对外提供读取演示状态、保存/删除案例、保存模式、保存目标、保存生成记录、保存反馈的统一入口。
-
-- 姚和曹不直接操作 localStorage，不自行建立 Supabase 客户端。
-- 各页面调用同一入口，立即读取最新状态；模式驳回、案例删除或目标停用后，不使用旧缓存继续生成。
-- 存储实现由安统一维护；首版浏览器保存，后续替换为数据库。
-- 本地状态标注 contractVersion，加载异常时提示用户；重置演示数据需要用户明确操作，不静默覆盖录入内容。
-
-### 计划中的服务端接口
-
-| 接口 | 请求内容 | 成功返回 |
-| --- | --- | --- |
-| `POST /api/patterns/analyze` | scenario、confirmed 的 cases | pending 的 BehaviorPattern 候选数组，允许为空 |
-| `POST /api/decisions/compare` | currentDecision、confirmed 的 cases 与 patterns、用户选定的 active goal | DecisionComparison |
-
-首版记录和生成接口相互分离：浏览器通过数据入口保存；服务端负责生成与校验。接口由安实现，当前尚不可调用。
-
-成功输出统一为 ok=true、data；失败输出统一为 ok=false、error，其中 error 含 code 和适合用户阅读的 message。请求校验错误与服务端错误使用合适的 HTTP 状态，不把失败伪装成成功。
-
-初始错误码：`VALIDATION_ERROR`、`MISSING_ACTIVE_GOAL`、`LLM_UNAVAILABLE`、`INVALID_MODEL_OUTPUT`、`INTERNAL_ERROR`。错误文本不返回密钥、原始请求日志或堆栈。
-
-生成服务必须再次校验状态、场景、ID 与请求结构。无历史时 original 可返回 insufficient_evidence；不能凭空生成倾向。无目标时比较页面先引导设置目标，接口返回 MISSING_ACTIVE_GOAL。
-
-生成不自动写成正式模式或修改用户目标。示例回退仅在用户选择“查看预置示例”后显示，不静默代替真实生成。
-
-## 5. AI 与规则职责
-
-- LLM：候选分析、解释、生成建议；输出按契约校验。
-- 系统：状态过滤、证据集合、目标生效、规则条件、引用检查、版本与反馈保存。
-- 用户：确认记录与模式、决定是否改变、选择目标、记录实际行动。
-- 证据和用户文本是待分析数据，不是可覆盖系统规则的指令。模型不获得修改数据库、执行命令或发送消息的工具。
-- 三个视角分别构建上下文。不得一次传入全部个人历史后宣称 generic 没有读取历史。
-- 保持相同模型和生成设置；不为制造对比而故意让 original 推荐不合理行动。
-- 不使用模型生成的置信数字作为已校准概率；首版使用 caveats 和支持/反例说明。
-
-## 6. 未来环境变量约定
-
-当前没有应用或 .env 文件。应用骨架实现时由安创建无真实值的 `.env.example` 并同步 README。
-
-统一的服务端变量计划为 `LLM_API_KEY`、`LLM_MODEL`、`LLM_BASE_URL`。供应商确定后定义必填与默认值，不让成员猜测端点或模型名。缺少配置时明确报告不可用，不假装成功调用。
-
-- 密钥不加 NEXT_PUBLIC_ 前缀，不进入浏览器包或日志。
-- .env 和本地环境文件不提交；示例文件只写变量名称和占位值。
-- 姚和曹用共享示例数据开发界面，不需要安的密钥。
-- 后续 Supabase 配置由安统一制定；不把服务端特权密钥暴露给客户端。
-- 不索要或记录私人 token，不把真实个人案例、聊天日志提交到仓库。
-
-## 7. GitHub 日常协作
-
-1. 查看安分配的任务与验收要求。
-2. 从最新 main 创建小任务分支。
-3. 让 AI 先读 README、AGENTS，再限定修改目录。
-4. 检查 diff，确认没有越界或密钥；验证模块。
-5. 提交小 PR，说明目标、文件、验证结果与限制。
-6. 安检查接口与整合；核心逻辑请其他成员复查。
-7. 合并后验证主流程，再从新 main 开始下一任务。
-
-不在 main 上直接开发应用，不强制推送共享分支，不丢弃他人未提交修改。初始文档提交由安直接建立 main，后续遵循 PR 流程。
-
-## 8. 每次交给 AI 的任务要包含
-
-- 目标和用户操作。
-- 输入/输出及引用的公共类型。
-- 允许修改的目录和明确禁止修改的公共文件。
-- 本任务是否授权增加依赖、改公共契约或联网发布。
-- 正常、空数据、加载、失败等需要覆盖的状态。
-- 实际验收步骤；完成后报告文件和验证证据。
-
-AI 先说明理解，再小步修改。遇到接口不足先报告具体缺口，不自行另建系统。当前没有应用时不得编造安装或运行命令。
-
-## 9. 验证与 Demo
-
-文档启动阶段只检查文档、契约一致性及 Git 状态，不安装测试框架。应用实现后，对真实风险验证：
-
-- 添加和编辑案例后刷新，数据一致；空表单不能保存。
-- 案例或模式被驳回、目标停用后，后续请求不使用它们。
-- 支持案例和反例可查看，生成引用均来自有效输入。
-- 证据不足时弃答，未启用目标时提示，不编造个人画像。
-- 三视角上下文边界正确，例子/实时请求标识准确。
-- 模型超时、配置缺失、无效输出时展示错误，保留用户输入。
-- 实际选择与后续结果分别保存，旧回答保留当时依据。
-- 合成与脱敏资料清楚标识；录屏不暴露密钥或私人记录。
-
-不得声称未执行的测试通过。安在代码落地后补充实际使用的检查命令；不要用空测试或只镜像实现的测试充数。
-
-## 10. 交付格式
-
-每次完成任务报告：已完成内容、修改文件、如何运行、实际验证结果、限制和下一步。没有运行条件时说明缺少什么，不以“应该正常”代替验证。
-
-范围与分工变更由安同步到 README 和本文件，再通知团队。项目名称为“知衡”。具体演示场景、供应商、姚和曹的 GitHub 用户名目前待定；这些待定项不授权 AI 自行扩大功能或邀请不明身份账号。
+<!-- END:nextjs-agent-rules -->

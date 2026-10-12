@@ -1,0 +1,592 @@
+/* The approved desktop profile: traits first, then self-assessment and goals. */
+@media (min-width: 1000px) {
+  .profile-desktop {
+    width: 100%;
+    max-width: 1440px;
+    padding: 0 0 32px;
+    color: var(--ink);
+    font-family: var(--sans);
+  }
+
+  .profile-desktop .page-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 0 0 14px;
+    align-items: flex-start;
+  }
+
+  .profile-desktop .page-heading h1 {
+    margin: 0;
+    color: var(--ink);
+    font: 650 26px/1.5 var(--sans);
+    letter-spacing: 0;
+  }
+
+  .profile-desktop .page-heading .simple-note {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .profile-desktop .questionnaire-entry {
+    flex-shrink: 0;
+    padding: 8px 0;
+    color: var(--green);
+    font-size: 14px;
+    text-underline-offset: 5px;
+  }
+
+  .profile-desktop .profile-navigation-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .profile-desktop .profile-dimension-nav {
+    display: flex;
+    align-items: stretch;
+    gap: clamp(18px, 2.2vw, 42px);
+    min-width: 0;
+  }
+
+  .profile-desktop .profile-dimension-nav .profile-dimension-link {
+    position: relative;
+    width: auto;
+    min-height: 52px;
+    padding: 10px 0 13px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+  }
+
+  .profile-desktop .profile-dimension-nav .profile-dimension-link:hover {
+    color: var(--green);
+    background: transparent;
+  }
+
+  .profile-desktop .profile-dimension-nav .profile-dimension-link.is-current {
+    border-bottom-color: transparent;
+    color: var(--ink);
+    background: transparent;
+  }
+
+  .profile-desktop .profile-dimension-label strong {
+    white-space: nowrap;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .profile-desktop .profile-pending-entry {
+    flex-shrink: 0;
+    color: var(--warm);
+    font-size: 14px;
+    text-decoration: none;
+    padding: 12px 0;
+  }
+
+  .profile-desktop .profile-pending-entry:hover {
+    text-decoration: underline;
+    text-underline-offset: 5px;
+  }
+
+  .profile-desktop .profile-focus {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .profile-desktop .profile-focus-heading {
+    padding: 0 0 12px;
+    border: 0;
+  }
+
+  .profile-desktop .profile-focus-heading h2 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .profile-desktop .profile-focus-heading div > p:last-child {
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .profile-desktop .profile-comparison {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .profile-desktop .profile-current,
+  .profile-desktop .profile-target {
+    min-width: 0;
+    min-height: 240px;
+    padding: 20px 24px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  .profile-desktop .profile-current h3,
+  .profile-desktop .profile-target .goal-editor h3 {
+    margin: 0 0 16px;
+    color: var(--ink);
+    font: 650 21px/1.5 var(--sans);
+  }
+
+  .profile-desktop .profile-current-summary,
+  .profile-desktop .profile-target .goal-summary {
+    padding: 16px 20px;
+    border-radius: 5px;
+    background: var(--soft-green);
+    overflow-wrap: anywhere;
+  }
+
+  .profile-desktop .profile-current-summary strong {
+    color: var(--green);
+    font-size: 16px;
+    font-weight: 650;
+  }
+
+  .profile-desktop .profile-current-summary p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+    margin: 8px 0 0;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+
+  .profile-desktop .profile-current-source {
+    margin: 12px 0 8px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .profile-desktop .profile-summary-source {
+    min-height: 26px;
+    padding: 0;
+    border: 0;
+    color: var(--green);
+    background: transparent;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .profile-desktop .profile-current-level-editor {
+    margin-top: 8px;
+    color: var(--green);
+    font-size: 14px;
+  }
+
+  .profile-desktop .profile-current-level-editor > summary {
+    cursor: pointer;
+  }
+
+  .profile-desktop .trait-level-control {
+    margin: 14px 0 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .profile-desktop .trait-level-control label {
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  .profile-desktop .trait-level-control p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .profile-desktop .profile-current-empty {
+    min-height: 112px;
+    padding: 0;
+    background: transparent;
+  }
+
+  .profile-desktop .profile-current-empty strong {
+    color: var(--green);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .profile-desktop .profile-current-empty p,
+  .profile-desktop .profile-target .goal-empty {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  .profile-desktop .profile-current-empty p {
+    margin: 8px 0 18px;
+  }
+
+  .profile-desktop .profile-current-empty a {
+    display: inline-block;
+    margin-right: 20px;
+    color: var(--green);
+    font-size: 14px;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 5px;
+  }
+
+  .profile-desktop .profile-target .goal-empty {
+    min-height: 110px;
+    margin: 0 0 16px;
+    padding: 0;
+    background: transparent;
+  }
+
+  .profile-desktop .profile-target .goal-intention {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    color: var(--ink);
+    background: transparent;
+    font-size: 16px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+
+  .profile-desktop .profile-target .goal-intention span {
+    margin: 0 0 6px;
+    color: var(--green);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .profile-desktop .profile-target .goal-willingness-summary {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .profile-desktop .profile-target .goal-willingness-summary strong {
+    color: var(--ink);
+  }
+
+  .profile-desktop .profile-actions {
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .profile-desktop .profile-actions button {
+    min-height: 38px;
+    padding: 8px 15px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--green);
+    background: var(--surface);
+    font-size: 14px;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .profile-desktop .profile-target .profile-actions button:first-child {
+    min-width: 160px;
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--surface);
+  }
+
+  .profile-desktop .profile-actions button:hover {
+    border-color: var(--green);
+    background: var(--soft-green);
+  }
+
+  .profile-desktop .profile-target .profile-edit-form {
+    margin-top: 0;
+  }
+
+  .profile-desktop .profile-edit-form label,
+  .profile-desktop .profile-edit-form small,
+  .profile-desktop .goal-willingness legend,
+  .profile-desktop .goal-willingness-options strong {
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .profile-desktop .profile-edit-form textarea,
+  .profile-desktop .profile-edit-form select {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--ink);
+    background: var(--surface);
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  .profile-desktop .goal-willingness-options label {
+    border-color: var(--line);
+    border-radius: 5px;
+    background: var(--surface);
+  }
+
+  .profile-desktop .goal-willingness-options label.is-selected {
+    border-color: var(--green);
+    background: var(--soft-green);
+  }
+
+  .profile-desktop .profile-confirmed-records {
+    margin-top: 20px;
+    padding: 20px 24px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  .profile-desktop .profile-confirmed-records > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .profile-desktop .profile-confirmed-records h3 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .profile-desktop .profile-confirmed-records > header > span,
+  .profile-desktop .profile-record-heading > small {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .profile-desktop .profile-focus .profile-overview-insight,
+  .profile-desktop .profile-overview-insight {
+    margin: 12px 0 0;
+    padding: 16px 18px;
+    border: 0;
+    border-radius: 5px;
+    background: var(--soft-green);
+  }
+
+  .profile-desktop .profile-record-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .profile-desktop .profile-insight-meta span {
+    padding: 2px 8px;
+    border: 1px solid var(--accent-line);
+    border-radius: 3px;
+    color: var(--green);
+    background: var(--surface);
+    font-size: 14px;
+  }
+
+  .profile-desktop .profile-insight-statement,
+  .profile-desktop .profile-focus .profile-insight-statement {
+    margin: 10px 0 12px;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+
+  .profile-desktop .profile-insight-details {
+    padding-top: 9px;
+    border-top: 1px solid var(--accent-line);
+  }
+
+  .profile-desktop .profile-insight-details > summary,
+  .profile-desktop .profile-response-adaptation > summary,
+  .profile-desktop .memory-update-review > summary {
+    color: var(--green);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .profile-desktop .profile-evidence small,
+  .profile-desktop .profile-record-info,
+  .profile-desktop .profile-record-info p,
+  .profile-desktop .profile-record-info small,
+  .profile-desktop .profile-response-adaptation p,
+  .profile-desktop .profile-response-adaptation label {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .profile-desktop .profile-evidence blockquote,
+  .profile-desktop .profile-source-preview {
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.8;
+    border-left-color: var(--accent-line);
+  }
+
+  .profile-desktop .profile-record-group {
+    margin-top: 12px;
+    padding: 18px 24px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+  }
+
+  .profile-desktop .profile-record-group > summary {
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  .profile-desktop .profile-record-group > summary span {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .profile-desktop .profile-pending-group {
+    scroll-margin-top: 24px;
+    border-color: #e8d7b7;
+    background: #fffaf0;
+  }
+
+  .profile-desktop .profile-pending-group > summary {
+    color: var(--warm);
+  }
+
+  .profile-desktop .profile-pending-dimension h3 {
+    margin: 20px 0 12px;
+    color: var(--ink);
+    font-size: 16px;
+  }
+
+  .profile-desktop .profile-pending-group .profile-overview-insight {
+    border: 1px solid #e8d7b7;
+    background: var(--surface);
+  }
+
+  .profile-desktop .profile-pending-group .profile-insight-meta span {
+    border-color: #e8d7b7;
+    color: var(--warm);
+    background: #fffaf0;
+  }
+
+  .profile-desktop .profile-tools {
+    margin-top: 18px;
+  }
+
+  .profile-desktop .profile-tool {
+    border-color: var(--line);
+  }
+
+  .profile-desktop .profile-tool > summary {
+    padding: 18px 2px;
+  }
+
+  .profile-desktop .profile-tool > summary strong {
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .profile-desktop .profile-tool > summary > span {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .profile-desktop .legacy-profile-dimensions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0 20px;
+  }
+
+  .profile-desktop .legacy-profile-dimensions .profile-dimension-link {
+    width: auto;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--surface);
+  }
+
+  .profile-desktop .legacy-profile-dimensions .profile-dimension-link.is-current {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--soft-green);
+  }
+
+  .profile-desktop .legacy-profile-dimensions .profile-dimension-label small {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .profile-desktop .legacy-profile-records .profile-focus-heading h2 {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    margin: 0 0 8px;
+    font: 600 20px/1.5 var(--sans);
+  }
+
+  .profile-desktop .personal-context-fields span,
+  .profile-desktop .personal-context-fields small,
+  .profile-desktop .personal-context-switch,
+  .profile-desktop .simple-note,
+  .profile-desktop .profile-overview-footnote {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .profile-desktop .personal-context-fields textarea {
+    border-radius: 5px;
+    font-size: 16px;
+  }
+
+  .profile-desktop .profile-overview-footnote {
+    margin: 22px 0 0;
+  }
+
+  .profile-desktop :is(button, a, summary, select, textarea, input):focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 4px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .profile-desktop { max-width: none; }
+  .profile-desktop .page-heading h1 { font-size: 30px; }
+  .profile-desktop .profile-current h3,
+  .profile-desktop .profile-target .goal-editor h3 { font-size: 24px; }
+  .profile-desktop .profile-current-summary :is(strong, p),
+  .profile-desktop .profile-target .goal-intention,
+  .profile-desktop .profile-insight-statement { font-size: 18px; }
+  .profile-desktop .profile-dimension-label strong { font-size: 18px; }
+  .profile-desktop .profile-comparison { gap: 24px; }
+}
