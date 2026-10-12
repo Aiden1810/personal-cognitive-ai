@@ -47,3 +47,11 @@ npm.cmd run dev -- --port 3001
 打开终端显示的地址，主入口 `/chat`。已有 `.env.local` 时保留原配置，不使用模板覆盖；AI 密钥只放服务端环境变量。
 
 检查命令：`npm.cmd test`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`。语义实验保持默认关闭，模型文件不随 Git 上传；按 README 单独准备。
+
+## 最终交付结果
+
+- 主要整理提交：`aab53c9`。当前工作区与此提交的隔离导出均通过 292 项测试、typecheck、lint 和 production 构建。导出没有复制 `.env.local` 或业务数据，复用按最终锁文件安装的依赖；导出构建出现父目录多锁文件的 workspace-root 提示，编译、类型和所有路由生成均成功。
+- Next.js 16.3.8 本地服务已恢复到 `http://127.0.0.1:3001/chat`。浏览器重新核对 chat/profile/onboarding/backup 在 1366px、390px 的页面，无横向溢出与 pageerror；减少动态效果时资料面板 Escape 回到入口。没有在此检查中调用真实模型。
+- `codex/chat-profile-ready` 已推送 GitHub，保留此前八个提交。[Draft PR #2](https://github.com/Aiden1810/personal-cognitive-ai/pull/2) 面向 main，完整说明现有能力、验证范围和剩余依赖告警；没有合并 main、关闭旧 PR #1 或部署。
+- 私有材料、工作区备份、配置、模型与研究源码保持本机忽略状态。新增交付文档提交后再次推送，并核对当前分支与远端一致、无未提交改动。
+- 临时隔离验证目录 `output/workspace-cleanup/tracked-checkout/` 的递归清理被执行策略拒绝，未执行删除，也未绕过限制。源码导出 ZIP、验证日志与该目录一并作为忽略的本地验收产物保留，不影响 Git 干净状态。
