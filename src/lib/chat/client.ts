@@ -7,6 +7,7 @@ import { useSyncExternalStore } from "react";
 import { createChatStore, CHAT_STORAGE_KEY } from "./store";
 import type { ChatMessage, ChatState, Conversation } from "./store";
 import type { ChatSuggestion } from "./suggestions";
+import type { ChatReferenceRecord } from "./references";
 import { applyChatSuggestion, type SuggestionConfirmation } from "./actions";
 import { refreshGoalData } from "../goals/client";
 import { refreshProfileData } from "../profile/client";
@@ -98,8 +99,8 @@ export function useChatData() {
   return {
     ...data,
     createConversation: () => execute((store) => store.createConversation()),
-    appendMessage: (id: string, role: ChatMessage["role"], content: string) =>
-      execute((store) => store.appendMessage(id, role, content)),
+    appendMessage: (id: string, role: ChatMessage["role"], content: string, references?: ChatReferenceRecord) =>
+      execute((store) => store.appendMessage(id, role, content, references)),
     setSuggestions: (id: string, messageId: string, suggestions: ChatSuggestion[]) =>
       executeSuggestion((store) => store.setSuggestions(id, messageId, suggestions)),
     dismissSuggestion: (id: string, messageId: string, suggestionId: string) =>

@@ -17,6 +17,7 @@ export interface ContextReferenceReason {
   terms: string[];
   topics: string[];
   semanticSimilarity?: number;
+  semanticMatched?: boolean;
 }
 
 export interface ChatContextSelection {

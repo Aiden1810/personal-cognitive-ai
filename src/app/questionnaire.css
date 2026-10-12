@@ -7,43 +7,49 @@
 .trait-level-control label, .questionnaire-review-card > label { display: grid; gap: 8px; font-size: 13px; color: var(--green); }
 .trait-level-control select, .questionnaire-review-card select { width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); font: inherit; }
 .trait-level-control p { font-size: 12px; line-height: 1.7; color: var(--muted); margin: 8px 0 0; }
-.questionnaire-invitation { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin: 16px 28px; padding: 18px 22px; border: 1px solid #c8d3c5; background: #eef1e8; border-radius: 3px; }
+.questionnaire-invitation { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin: 16px 28px; padding: 18px 22px; border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: 3px; }
 .questionnaire-invitation div { flex: 1; min-width: 200px; }
 .questionnaire-invitation strong { color: var(--green); font-size: 15px; }
 .questionnaire-invitation p { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 .questionnaire-invitation a { color: var(--green); font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 .trait-questionnaire { max-width: 1060px; margin: 0 auto; padding-bottom: 45px; }
-.trait-questionnaire .page-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 30px 0 22px; }
-.trait-questionnaire .page-heading h1 { color: var(--green); font-size: clamp(30px, 3.5vw, 46px); margin: 0; font-family: var(--serif); }
+.trait-questionnaire .page-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 4px 0 12px; }
+.trait-questionnaire .page-heading h1 { color: var(--green); font-size: clamp(26px, 3vw, 34px); margin: 0; font-family: var(--serif); }
 .trait-questionnaire .page-heading a { color: var(--green); font-size: 13px; white-space: nowrap; }
-.questionnaire-kicker { color: var(--warm); font-size: 12px; margin: 0 0 10px; letter-spacing: .1em; }
-.questionnaire-intro { font-size: 15px; line-height: 1.9; color: var(--ink); max-width: 760px; }
+.questionnaire-kicker { color: var(--accent); font-size: 12px; margin: 0 0 4px; letter-spacing: .06em; }
+.questionnaire-intro { font-size: 15px; line-height: 1.75; color: var(--ink); max-width: 900px; margin: 8px 0; }
 .questionnaire-retake, .questionnaire-empty { padding: 15px 18px; background: var(--soft-green); border-left: 3px solid var(--green); font-size: 13px; line-height: 1.8; }
-.questionnaire-progress { display: flex; align-items: center; gap: 18px; padding: 25px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.questionnaire-progress { display: flex; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .questionnaire-progress progress { width: min(45%, 320px); height: 7px; accent-color: var(--green); }
-.questionnaire-step-heading { font: 28px/1.45 var(--serif); color: var(--green); margin: 26px 0 12px; }
+.questionnaire-step-heading { font: 600 24px/1.45 var(--serif); color: var(--green); margin: 20px 0 8px; scroll-margin-top: 20px; }
 .questionnaire-step-heading:focus { outline: none; }
-.questionnaire-questions fieldset { border: 0; border-bottom: 1px solid var(--line); padding: 22px 0; margin: 0; min-width: 0; }
+.questionnaire-questions fieldset { border: 0; border-bottom: 1px solid var(--line); padding: 16px 0; margin: 0; min-width: 0; }
 .questionnaire-questions legend { padding: 0; float: left; width: 100%; font-size: 15px; line-height: 1.8; margin-bottom: 15px; }
 .questionnaire-questions legend span { color: var(--warm); margin-right: 10px; font: 13px Georgia, serif; }
 .questionnaire-answer-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; clear: both; }
 .questionnaire-answer-options label { position: relative; cursor: pointer; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); padding: 13px 10px; min-height: 80px; display: grid; grid-template-columns: 18px 1fr; align-content: center; gap: 6px; }
-.questionnaire-answer-options label:hover { border-color: #899d89; }
+.questionnaire-answer-options label:hover { border-color: var(--accent-line); }
 .questionnaire-answer-options label.is-selected { border-color: var(--green); background: var(--soft-green); }
 .questionnaire-answer-options input { accent-color: var(--green); margin: 2px 0; }
-.questionnaire-answer-options strong { font-size: 13px; font-weight: 600; color: var(--green); }
-.questionnaire-answer-options small { grid-column: 2; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.questionnaire-answer-options strong { font-size: 14px; font-weight: 600; color: var(--ink); }
+.questionnaire-answer-options small { grid-column: 2; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.questionnaire-answer-options label { transition: border-color var(--motion-quick) ease, background-color var(--motion-quick) ease, transform var(--motion-quick) ease; }
+.questionnaire-answer-options label:hover { transform: translateY(-1px); }
+.questionnaire-answer-options label:active { transform: scale(.985); }
+.questionnaire-answer-options label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.questionnaire-selected-icon { position: absolute; top: 6px; right: 6px; color: var(--accent); }
 .questionnaire-questions .text-button { margin-top: 9px; font-size: 12px; }
-.questionnaire-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 28px; }
+.questionnaire-actions { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 20px; padding: 14px 0; border-top: 1px solid var(--line); background: var(--paper); }
+.questionnaire-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .questionnaire-actions .button { min-height: 44px; padding: 10px 18px; border: 1px solid var(--green); border-radius: 3px; font: inherit; font-size: 13px; cursor: pointer; }
-.questionnaire-actions .primary { background: var(--green); color: #fffef8; }
+.questionnaire-actions .primary { background: var(--green); color: white; }
 .questionnaire-actions .secondary { background: transparent; color: var(--green); }
 .questionnaire-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 25px; }
 .questionnaire-review-card { padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; min-width: 0; }
 .questionnaire-review-card > label { margin-bottom: 16px; }
 .questionnaire-review-card .questionnaire-include { display: flex; align-items: center; gap: 9px; padding-bottom: 16px; border-bottom: 1px solid var(--line); font-size: 16px; }
 .questionnaire-include input { accent-color: var(--green); width: 17px; height: 17px; }
-.questionnaire-review-card textarea { resize: vertical; width: 100%; min-height: 150px; border: 1px solid var(--line); background: #fffef8; color: var(--ink); border-radius: 3px; padding: 10px; font: inherit; font-size: 13px; line-height: 1.9; }
+.questionnaire-review-card textarea { resize: vertical; width: 100%; min-height: 150px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 3px; padding: 10px; font: inherit; font-size: 13px; line-height: 1.9; }
 .questionnaire-review-card details { font-size: 12px; color: var(--muted); }
 .questionnaire-review-card summary, .questionnaire-rules summary { cursor: pointer; color: var(--green); }
 .questionnaire-review-card blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid var(--line); line-height: 1.9; }

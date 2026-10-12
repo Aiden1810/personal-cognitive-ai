@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { GOAL_WILLINGNESS_LEVELS, type CognitiveDimension, type GoalWillingness, type UserGoal, type TraitDimension, type TraitLevel } from "@/types/cognitive";
 import { GOAL_WILLINGNESS_DETAILS } from "@/lib/goals/willingness";
 import { isTraitDimension, isTraitLevel, TRAIT_LEVEL_DETAILS } from "@/lib/profile/questionnaire";
@@ -47,11 +47,25 @@ export function GoalEditor({ dimension, goal, onSave, onPause, onResume, onDelet
   const [willingness, setWillingness] = useState<GoalWillingness | null>(startEditing ? goal?.willingness ?? null : null);
   const [saved, setSaved] = useState(false);
   const [targetLevel, setTargetLevel] = useState<TraitLevel | "">(startEditing ? goal?.targetLevel ?? "" : "");
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
   const fieldId = idPrefix ?? "goal-" + dimension;
   const prompt = isTraitDimension(dimension) ? TRAIT_GOAL_PROMPTS[dimension] : {
     label: "你希望在这方面怎么做？",
     placeholder: "写下你希望保持或改变的具体做法，以及准备怎样尝试。",
   };
+
+  useLayoutEffect(() => {
+    if (editing) fieldRef.current?.focus({ preventScroll: true });
+    else if (wasEditing.current) editButtonRef.current?.focus({ preventScroll: true });
+    wasEditing.current = editing;
+  }, [editing]);
+
+  function cancel() {
+    setEditing(false);
+    onClose?.();
+  }
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,9 +83,14 @@ export function GoalEditor({ dimension, goal, onSave, onPause, onResume, onDelet
   return (
     <div className="goal-editor">
       <h3>{heading}</h3>
-      {editing ? <form onSubmit={save} className="profile-edit-form">
+      <div className="goal-editor-mode" data-state={editing ? "open" : "closed"} aria-hidden={!editing} inert={!editing}>
+      <div className="goal-editor-mode-content">
+      <form onSubmit={save} className="profile-edit-form" aria-label={heading} onKeyDown={(event) => {
+        if (event.key !== "Escape" || event.nativeEvent.isComposing || event.defaultPrevented || event.target instanceof HTMLSelectElement) return;
+        event.preventDefault(); event.stopPropagation(); cancel();
+      }}>
         <label htmlFor={fieldId}>{prompt.label}</label>
-        <textarea id={fieldId} value={draft} onChange={(event) => setDraft(event.target.value)}
+        <textarea ref={fieldRef} id={fieldId} value={draft} onChange={(event) => setDraft(event.target.value)}
           placeholder={prompt.placeholder} maxLength={500} required />
         {isTraitDimension(dimension) && <label htmlFor={fieldId + "-level"}>希望达到的档位 · 可选
           <select id={fieldId + "-level"} value={targetLevel} onChange={(event) => {
@@ -94,16 +113,20 @@ export function GoalEditor({ dimension, goal, onSave, onPause, onResume, onDelet
         </fieldset>
         <div className="profile-actions">
           <button type="submit" disabled={!draft.trim()}>{saveLabel}</button>
-          <button type="button" onClick={() => { setEditing(false); onClose?.(); }}>取消</button>
+          <button type="button" onClick={cancel}>取消</button>
         </div>
-      </form> : <>
+      </form>
+      </div>
+      </div>
+      <div className="goal-editor-mode" data-state={editing ? "closed" : "open"} aria-hidden={editing} inert={editing}>
+      <div className="goal-editor-mode-content">
         {goal ? <div className="goal-summary">
           <p className="goal-intention"><span>{goal.status === "active" ? "已启用" : "已暂停"}</span>{goal.intention}</p>
           {goal.willingness && <p className="goal-willingness-summary">改变意愿 · <strong>{GOAL_WILLINGNESS_DETAILS[goal.willingness].label}</strong></p>}
           {goal.targetLevel && <p className="goal-willingness-summary">目标档位 · <strong>{TRAIT_LEVEL_DETAILS[goal.targetLevel].label}</strong></p>}
         </div> : <p className="goal-empty">尚未设置目标。</p>}
         <div className="profile-actions">
-          <button type="button" onClick={() => {
+          <button ref={editButtonRef} type="button" onClick={() => {
             setDraft(goal?.intention ?? ""); setWillingness(goal?.willingness ?? null); setTargetLevel(goal?.targetLevel ?? ""); setEditing(true); setSaved(false);
           }}>{goal ? "修改目标" : "设置目标"}</button>
           {goal && <>
@@ -111,7 +134,8 @@ export function GoalEditor({ dimension, goal, onSave, onPause, onResume, onDelet
             <button type="button" onClick={remove}>删除</button>
           </>}
         </div>
-      </>}
+      </div>
+      </div>
       {saved && <p className="simple-note" role="status">{goal?.status === "paused" ? "已保存，仍保持暂停。" : "已保存。"}</p>}
     </div>
   );

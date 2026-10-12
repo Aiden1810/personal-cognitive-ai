@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { startTransition, useEffect, useRef, useState, ViewTransition, type FormEvent } from "react";
+import { Plus } from "lucide-react";
 import { useChatData } from "@/lib/chat/client";
 import { useProfileData } from "@/lib/profile/client";
 import { useGoalData } from "@/lib/goals/client";
@@ -218,16 +219,21 @@ export function ProfileOverview() {
                 <button type="button" key={group.dimension}
                   className={"profile-dimension-link " + (currentTrait === group.dimension ? "is-current" : "")}
                   aria-pressed={currentTrait === group.dimension} aria-controls={"panel-" + group.dimension}
-                  onClick={() => setSelectedDimension(group.dimension)}>
+                  onClick={() => startTransition(() => setSelectedDimension(group.dimension))}>
                   <span className="profile-dimension-label">
                     <strong>{PROFILE_DIMENSIONS[group.dimension].label}</strong>
                   </span>
+                  {currentTrait === group.dimension && <ViewTransition name="trait-indicator" share="auto"><span className="profile-tab-indicator" aria-hidden="true" /></ViewTransition>}
                 </button>
               ))}
             </nav>
-            <a className="profile-pending-entry" href="#pending-memories" onClick={() => { if (pendingRecords.current) pendingRecords.current.open = true; }}>审核候选记忆（{pendingCount}）</a>
+            <a className="profile-pending-entry icon-link" href="#pending-memories" onClick={() => { if (pendingRecords.current) pendingRecords.current.open = true; }}>
+              审核候选记忆<span className="profile-pending-count">{pendingCount} 条</span>
+            </a>
           </div>
-          <div className="profile-dimension-panels">{traitGroups.map((group) => renderDimension(group, currentTrait === group.dimension))}</div>
+          <ViewTransition name="trait-content" update="content-swap">
+            <div className="profile-dimension-panels">{traitGroups.map((group) => renderDimension(group, currentTrait === group.dimension))}</div>
+          </ViewTransition>
           <details className="profile-record-group profile-pending-group" id="pending-memories" ref={pendingRecords}>
             <summary>候选记忆 · 等待你审核 <span>{pendingCount} 条</span></summary>
             <p className="simple-note">以下内容是待核对的候选；记住后才进入当前画像。</p>
@@ -245,20 +251,20 @@ export function ProfileOverview() {
                 <nav className="legacy-profile-dimensions" aria-label="其他背景分类">{legacyGroups.map((group) => <button type="button" key={group.dimension}
                   className={"profile-dimension-link " + (currentLegacy === group.dimension ? "is-current" : "")}
                   aria-pressed={currentLegacy === group.dimension} aria-controls={"panel-" + group.dimension}
-                  onClick={() => setSelectedDimension(group.dimension)}><span className="profile-dimension-label"><strong>{PROFILE_DIMENSIONS[group.dimension].label}</strong><small>{group.active.length} 条已确认</small></span></button>)}</nav>
+                  onClick={() => startTransition(() => setSelectedDimension(group.dimension))}><span className="profile-dimension-label"><strong>{PROFILE_DIMENSIONS[group.dimension].label}</strong><small>{group.active.length} 条已确认</small></span></button>)}</nav>
                 {legacyGroups.map((group) => renderDimension(group, currentLegacy === group.dimension))}
               </> : <p className="simple-note">暂无旧分类记录。</p>}
             </details>
             <details className="profile-tool" id="memory-summary">
-              <summary><strong>记忆摘要</strong><span className="profile-tool-symbol" aria-hidden="true">＋</span></summary>
+              <summary><strong>记忆摘要</strong><Plus className="profile-tool-symbol" size={19} aria-hidden="true" /></summary>
               <MemorySummaryPanel insights={activeInsights} conversations={conversations} onInspect={inspectMemory} />
             </details>
             <details className="profile-tool">
-              <summary><strong>综合观察</strong><span className="profile-tool-symbol" aria-hidden="true">＋</span></summary>
+              <summary><strong>综合观察</strong><Plus className="profile-tool-symbol" size={19} aria-hidden="true" /></summary>
               <ProfileReflectionPanel insights={activeInsights} />
             </details>
             <details className="profile-tool">
-              <summary><strong>我的整理与核对</strong><span className="profile-tool-symbol" aria-hidden="true">＋</span></summary>
+              <summary><strong>我的整理与核对</strong><Plus className="profile-tool-symbol" size={19} aria-hidden="true" /></summary>
               <ProfileAssessment insights={activeInsights} />
             </details>
           </div>

@@ -55,6 +55,7 @@
   }
 
   .profile-desktop .profile-dimension-nav .profile-dimension-link {
+    position: relative;
     width: auto;
     min-height: 52px;
     padding: 10px 0 13px;
@@ -72,7 +73,7 @@
   }
 
   .profile-desktop .profile-dimension-nav .profile-dimension-link.is-current {
-    border-bottom-color: var(--green);
+    border-bottom-color: transparent;
     color: var(--ink);
     background: transparent;
   }
@@ -134,7 +135,7 @@
   .profile-desktop .profile-current,
   .profile-desktop .profile-target {
     min-width: 0;
-    min-height: 275px;
+    min-height: 240px;
     padding: 20px 24px;
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -218,10 +219,9 @@
   }
 
   .profile-desktop .profile-current-empty {
-    min-height: 155px;
-    padding: 18px 20px;
-    border-radius: 5px;
-    background: var(--soft-green);
+    min-height: 112px;
+    padding: 0;
+    background: transparent;
   }
 
   .profile-desktop .profile-current-empty strong {
@@ -254,9 +254,8 @@
   .profile-desktop .profile-target .goal-empty {
     min-height: 110px;
     margin: 0 0 16px;
-    padding: 18px 20px;
-    border-radius: 5px;
-    background: var(--soft-green);
+    padding: 0;
+    background: transparent;
   }
 
   .profile-desktop .profile-target .goal-intention {
@@ -401,7 +400,7 @@
 
   .profile-desktop .profile-insight-meta span {
     padding: 2px 8px;
-    border: 1px solid #b8d8d2;
+    border: 1px solid var(--accent-line);
     border-radius: 3px;
     color: var(--green);
     background: var(--surface);
@@ -419,7 +418,7 @@
 
   .profile-desktop .profile-insight-details {
     padding-top: 9px;
-    border-top: 1px solid #cfe3df;
+    border-top: 1px solid var(--accent-line);
   }
 
   .profile-desktop .profile-insight-details > summary,
@@ -446,7 +445,7 @@
     color: var(--ink);
     font-size: 16px;
     line-height: 1.8;
-    border-left-color: #94bdb6;
+    border-left-color: var(--accent-line);
   }
 
   .profile-desktop .profile-record-group {

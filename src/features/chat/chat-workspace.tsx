@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { startTransition, useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowUpRight, Copy, Plus, X } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { getSavedConversation, useChatData } from "@/lib/chat/client";
 import { requestAssistantReply } from "@/lib/chat/api";
@@ -23,6 +24,8 @@ import { ChatMessageContent } from "./message-content";
 import { requestChatSuggestions } from "@/lib/chat/suggestions-api";
 import { selectChatContext } from "@/lib/chat/context";
 import { ChatSuggestionCard } from "./chat-suggestion-card";
+import { ChatReplyReferences } from "./chat-reply-references";
+import { createChatReferences, type ChatReferenceRecord } from "@/lib/chat/references";
 
 export function ChatWorkspace() {
   const {
@@ -147,13 +150,15 @@ export function ChatWorkspace() {
     }
     try {
       let replyContext: ChatContextSelection | undefined;
+      let replyReferences: ChatReferenceRecord | undefined;
       const insights = usableProfileInsights(profileState?.insights ?? [], conversations);
       const goals = (goalState?.goals ?? []).filter((goal) => goal.status === "active");
       const reply = await requestAssistantReply(messages, insights, goals, undefined, (selection) => {
         replyContext = selection;
+        replyReferences = createChatReferences(selection, messageId);
         setRequestContexts((previous) => ({ ...previous, [id]: { messageId, selection, phase: "pending" } }));
       }, preferences.state?.preferences, semanticEnabled, preferences.state?.personalContext);
-      const savedReply = appendMessage(id, "assistant", reply);
+      const savedReply = appendMessage(id, "assistant", reply, replyReferences);
       if (!savedReply) throw new Error("AI 回复未能保存，请检查浏览器存储后重试。");
       markContext("complete");
       void checkSuggestions(id, savedReply, messages, replyContext);
@@ -238,10 +243,10 @@ export function ChatWorkspace() {
           <div className="chat-threads-header">
             <button
               className="chat-new-button"
-              onClick={startConversation}
+              onClick={() => startTransition(startConversation)}
               disabled={!ready || !!error || !!pendingId}
             >
-              ＋ 新对话
+              <Plus size={18} aria-hidden="true" />新对话
             </button>
           </div>
           {!ready && (
@@ -252,19 +257,18 @@ export function ChatWorkspace() {
           <div className="chat-thread-items">
             {visibleConversations.map((item) => (
               <ConversationListItem key={item.id} conversation={item} selected={selected?.id === item.id}
-                disabled={!!pendingId} onSelect={setSelectedId} onDelete={removeConversation} />
+                disabled={!!pendingId} onSelect={(id) => startTransition(() => setSelectedId(id))} onDelete={removeConversation} />
             ))}
           </div>
         </div>
       </AppSidebar>
 
       <div className="chat-stage" onKeyDown={(event) => {
-        if (event.key !== "Escape" || (!settingsOpen && !referencesOpen)) return;
+        if (event.key !== "Escape" || event.nativeEvent.isComposing || event.defaultPrevented || event.target instanceof HTMLSelectElement || (!settingsOpen && !referencesOpen)) return;
         event.preventDefault();
         if (referencesOpen) referencesButtonRef.current?.focus();
         else settingsButtonRef.current?.focus();
-        setReferencesOpen(false);
-        setSettingsOpen(false);
+        setReferencesOpen(false); setSettingsOpen(false);
       }}>
         <div className="chat-stage-header">
           <div>
@@ -272,11 +276,11 @@ export function ChatWorkspace() {
           </div>
           <div className="chat-stage-actions">
             <button ref={referencesButtonRef} type="button" aria-controls="chat-reference-panel" aria-expanded={referencesOpen}
-              onClick={() => { setReferencesOpen(!referencesOpen); setSettingsOpen(false); }}>
+              onClick={() => { setReferencesOpen((open) => !open); setSettingsOpen(false); }}>
               参考资料
             </button>
             <button ref={settingsButtonRef} type="button" aria-controls="chat-settings-panel" aria-expanded={settingsOpen}
-              onClick={() => { setSettingsOpen(!settingsOpen); setReferencesOpen(false); }}>
+              onClick={() => { setSettingsOpen((open) => !open); setReferencesOpen(false); }}>
               对话设置
             </button>
           </div>
@@ -285,7 +289,7 @@ export function ChatWorkspace() {
           !profileState?.onboarding && !(profileState?.insights.length) && !(goalState?.goals.length) && visibleConversations.length === 0 &&
           <aside className="questionnaire-invitation" aria-label="初始问卷">
             <div><strong>先让知衡了解你的做事方式</strong><p>15 题建立可修改的初始画像，也可以直接开始聊天。</p></div>
-            <Link href="/onboarding">填写初始问卷 ↗</Link><button type="button" className="text-button" onClick={skipQuestionnaire}>暂时跳过</button>
+            <Link className="icon-link" href="/onboarding">填写初始问卷<ArrowUpRight size={15} aria-hidden="true" /></Link><button type="button" className="text-button" onClick={skipQuestionnaire}>暂时跳过</button>
           </aside>}
         {error && (
           <div className="error-notice" role="alert">
@@ -312,8 +316,12 @@ export function ChatWorkspace() {
         {autoMessage?.error && selected?.id === autoMessage.id && <p className="error-notice auto-profile-message" role="alert">{autoMessage.message}</p>}
         <div className="chat-panels">
           <details className="chat-reference-panel" id="chat-reference-panel" open={referencesOpen}
-            onToggle={(event) => setReferencesOpen(event.currentTarget.open)}>
-          <summary onClick={() => { if (referencesOpen) referencesButtonRef.current?.focus(); }}>参考资料<span>收起</span></summary>
+            inert={!referencesOpen}
+            >
+          <summary onClick={(event) => { event.preventDefault(); referencesButtonRef.current?.focus(); setReferencesOpen(false); }}>
+            <span className="chat-panel-title">参考资料</span>
+            <span className="chat-panel-close"><span>收起</span><X size={16} aria-hidden="true" /></span>
+          </summary>
             <div className="chat-reference-body">
               {selected && latestContext ? (
                 <ChatContextPanel
@@ -326,15 +334,19 @@ export function ChatWorkspace() {
                   currentGoals={goalState?.goals ?? []}
                 />
               ) : <p className="chat-context-note">发送消息后，可以在这里核对这次请求附带的画像、目标和个人设置。</p>}
-              <Link className="chat-memory-link" href="/profile#personal-context">查看我的背景与回答要求 ↗</Link>
+              <Link className="chat-memory-link icon-link" href="/profile#personal-context">查看我的背景与回答要求<ArrowUpRight size={15} aria-hidden="true" /></Link>
             </div>
           </details>
           <details className="chat-tools" id="chat-settings-panel" open={settingsOpen}
-            onToggle={(event) => setSettingsOpen(event.currentTarget.open)}>
-          <summary onClick={() => { if (settingsOpen) settingsButtonRef.current?.focus(); }}>对话设置<span>收起</span></summary>
+            inert={!settingsOpen}
+            >
+          <summary onClick={(event) => { event.preventDefault(); settingsButtonRef.current?.focus(); setSettingsOpen(false); }}>
+            <span className="chat-panel-title">对话设置</span>
+            <span className="chat-panel-close"><span>收起</span><X size={16} aria-hidden="true" /></span>
+          </summary>
             <div className="chat-tools-body">
               <ResponsePreferencePanel busy={!!pendingId} />
-              <Link className="chat-memory-link" href="/profile#personal-context">个人背景与自定义回答要求 ↗</Link>
+              <Link className="chat-memory-link icon-link" href="/profile#personal-context">个人背景与自定义回答要求<ArrowUpRight size={15} aria-hidden="true" /></Link>
               <details className="response-preferences"><summary><strong>AI 操作建议</strong><span>需你确认</span></summary>
                 <p className="chat-context-note">回复完成后，会把这次发言、刚生成的回复和本次已参考的相关记忆与目标发送给 DeepSeek，检查是否适合创建目标、核对归档记忆或记录行动。卡片只打开确认表单，不自动保存或归档。</p>
               </details>
@@ -352,7 +364,7 @@ export function ChatWorkspace() {
               </details>
               <ProfileReviewPanel key={selected?.id ?? "empty"} conversation={selected} conversations={conversations} busy={!!pendingId || autoBusy} />
               {autoMessage && !autoMessage.error && selected?.id === autoMessage.id && <p className="chat-muted" role="status">{autoMessage.message}</p>}
-              {pendingMemories > 0 && <Link className="chat-memory-link" href="/profile#pending-memories">到我的画像查看全部待确认记忆 ↗</Link>}
+              {pendingMemories > 0 && <Link className="chat-memory-link icon-link" href="/profile#pending-memories">到我的画像查看全部待确认记忆<ArrowUpRight size={15} aria-hidden="true" /></Link>}
             </div>
           </details>
         </div>
@@ -360,19 +372,17 @@ export function ChatWorkspace() {
           <div className="chat-message-list">
             {!selected || selected.messages.length === 0 ? (
               <div className="chat-welcome">
-                <h3>今天想聊些什么？</h3>
+                <h3>今天想聊些什么</h3>
                 <div className="chat-starters" aria-label="对话开场示例">
                   {["帮我梳理现在最重要的事", "我想复盘最近的一个选择", "陪我把这个问题想清楚"].map((prompt) => (
                     <button type="button" key={prompt} onClick={() => { setDraft(prompt); composerRef.current?.focus(); }} disabled={!ready || !!error}>
-                      {prompt}<span aria-hidden="true">↗</span>
+                      {prompt}<ArrowUpRight size={18} aria-hidden="true" />
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
               selected.messages.map((message, index) => {
-                const contextForMessage = selected && requestContexts[selected.id]?.messageId === message.id ? requestContexts[selected.id] : null;
-                const memoryCount = contextForMessage ? (contextForMessage.selection.insights.length + contextForMessage.selection.goals.length) : 0;
                 return (
                   <div className={`chat-message ${message.role}`} key={message.id}>
                     <span className="chat-message-role" aria-hidden="true">
@@ -381,13 +391,10 @@ export function ChatWorkspace() {
                     <div className="chat-message-content">
                       <span className="chat-message-label">
                         {message.role === "user" ? "你" : "知衡 · AI"}
-                        {message.role === "assistant" && memoryCount > 0 && (
-                          <span className="chat-memory-badge" title={`参考了 ${memoryCount} 条记忆`}>
-                            参考 {memoryCount} 项
-                          </span>
-                        )}
                       </span>
                       <ChatMessageContent role={message.role} content={message.content} />
+                      {message.role === "assistant" && <ChatReplyReferences message={message} conversation={selected}
+                        conversations={conversations} insights={profileState?.insights ?? []} goals={goalState?.goals ?? []} />}
                       {message.role === "assistant" && <>
                         {message.suggestions?.map((suggestion) => <ChatSuggestionCard key={suggestion.id} suggestion={suggestion}
                           conversationId={selected.id} messageId={message.id} conversations={conversations} busy={!!pendingId} />)}
@@ -403,6 +410,7 @@ export function ChatWorkspace() {
                       {message.role === "assistant" && (
                         <button type="button" className="chat-copy-button" onClick={() => void copyReply(message)}
                           aria-label="复制知衡的回复">
+                          <Copy size={14} aria-hidden="true" />
                           {copyStatus?.id === message.id ? copyStatus.text : "复制回复"}
                         </button>
                       )}
@@ -421,9 +429,9 @@ export function ChatWorkspace() {
         )}
         {pendingMemories > 0 && <aside className="chat-review-cue" aria-label="待审核记忆">
           <span>{pendingMemories} 条记忆待确认 · 审核后才会用于回答</span>
-          <Link href="/profile#pending-memories">去审核 ↗</Link>
+          <Link className="icon-link" href="/profile#pending-memories">去审核<ArrowUpRight size={15} aria-hidden="true" /></Link>
         </aside>}
-        <form className="chat-composer" onSubmit={sendMessage}>
+        <form className="chat-composer" onSubmit={sendMessage} aria-busy={!!pendingId}>
           <label htmlFor="chat-draft" className="sr-only">继续对话</label>
           <div className="chat-composer-box">
             <textarea
@@ -441,8 +449,8 @@ export function ChatWorkspace() {
               disabled={!ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error || !!pendingId}
               maxLength={10000}
             />
-            <button type="submit" disabled={!draft.trim() || !ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error || !!pendingId}>
-              {pendingId ? "等待回复…" : "发送"}
+            <button type="submit" aria-busy={!!pendingId} disabled={!draft.trim() || !ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error || !!pendingId}>
+              {pendingId ? "等待回复" : "发送"}
             </button>
           </div>
           <div className="chat-composer-note">

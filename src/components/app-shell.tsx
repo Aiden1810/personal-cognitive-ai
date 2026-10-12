@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState, ViewTransition, type ReactNode } from "react";
 import { useDemoData } from "@/lib/data";
 import { AppSidebar } from "./app-sidebar";
 
@@ -65,7 +65,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               正在读取本地资料…
             </p>
           ) : (
-            children
+            <ViewTransition key={path} name="workspace-page" default="none" share="page-swap" enter="page-swap" exit="page-swap">
+              {children}
+            </ViewTransition>
           )}
           {!isProduct && (
             <details className="developer-check">

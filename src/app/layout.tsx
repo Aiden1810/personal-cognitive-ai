@@ -9,6 +9,7 @@ import "./personal-context.css";
 import "./desktop-ui.css";
 import "./chat-desktop.css";
 import "./profile-desktop.css";
+import "./motion.css";
 
 export const metadata: Metadata = {
   title: "知衡 · 个人认知 AI",

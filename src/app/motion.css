@@ -1,0 +1,129 @@
+/* Continuity patterns informed by beUI and Transitions; no vendor code copied. */
+:root {
+  --motion-quick: 140ms;
+  --motion-panel: 220ms;
+  --motion-content: 260ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+.desktop-workspace :is(button, a, summary, input, select, textarea) {
+  transition: color var(--motion-quick) ease, background-color var(--motion-quick) ease,
+    border-color var(--motion-quick) ease, box-shadow var(--motion-quick) ease,
+    opacity var(--motion-quick) ease, transform var(--motion-quick) var(--motion-ease),
+    scale var(--motion-quick) var(--motion-ease);
+}
+.desktop-workspace button:not(:disabled):active { scale: .985; }
+.desktop-workspace :is(button, input, select, textarea):disabled { cursor: not-allowed; opacity: .55; }
+.desktop-workspace button[aria-busy="true"] { cursor: progress; }
+@media (hover: hover) and (pointer: fine) {
+  .desktop-workspace :is(.button, .chat-new-button, .chat-composer button, .profile-actions button, .questionnaire-actions button):not(:disabled):hover { scale: 1.01; }
+}
+.desktop-workspace .nav-item:active { transform: scale(.985); }
+.desktop-workspace .lucide { flex-shrink: 0; vertical-align: middle; }
+.desktop-workspace .icon-link { display: inline-flex; align-items: center; gap: 6px; }
+.profile-dimension-nav .profile-dimension-link { position: relative; }
+.profile-tab-indicator { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
+.profile-pending-count { color: var(--muted); font-size: inherit; }
+.profile-tool[open] .profile-tool-symbol { transform: rotate(45deg); }
+.profile-tool-symbol { transition: transform var(--motion-panel) var(--motion-ease); }
+.desktop-workspace #main-content { animation: surface-in var(--motion-content) var(--motion-ease); }
+.desktop-workspace .chat-stage-actions button,
+.desktop-workspace .chat-new-button,
+.desktop-workspace .chat-composer button,
+.desktop-workspace .chat-copy-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.desktop-workspace .chat-composer-box:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.desktop-workspace .chat-composer textarea:focus-visible { outline: none; }
+.desktop-workspace .chat-composer button { min-width: 96px; white-space: nowrap; }
+
+/* Frequent overlays animate their live DOM, so quick clicks stay available. */
+.desktop-workspace .chat-sidebar { z-index: 40; }
+.desktop-workspace .chat-panels > details,
+.desktop-workspace .chat-thread-menu {
+  display: block;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--motion-quick) ease, transform var(--motion-quick) var(--motion-ease),
+    display var(--motion-quick) allow-discrete;
+}
+.desktop-workspace .chat-panels > details:not([open]),
+.desktop-workspace .chat-thread-menu[data-state="closed"] {
+  display: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+@starting-style {
+  .desktop-workspace .chat-panels > details[open],
+  .desktop-workspace .chat-thread-menu[data-state="open"] { opacity: 0; transform: translateY(-4px); }
+}
+.goal-editor-mode {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transition: grid-template-rows var(--motion-panel) var(--motion-ease), opacity var(--motion-quick) ease;
+}
+.goal-editor-mode[data-state="open"] { grid-template-rows: 1fr; opacity: 1; pointer-events: auto; }
+.goal-editor-mode-content { min-height: 0; overflow: hidden; }
+.desktop-workspace .goal-editor .profile-edit-form :is(textarea, select, button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.desktop-workspace .chat-suggestion-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .desktop-workspace :is(button, summary) { min-height: 44px !important; }
+  .desktop-workspace .chat-thread-row { min-height: 48px; }
+  .desktop-workspace .chat-thread-more { width: 44px; height: 44px; opacity: 1; }
+  .desktop-workspace .chat-thread-item { padding-right: 54px; }
+}
+::view-transition { pointer-events: none; }
+::view-transition-group(*) { animation-duration: var(--motion-content); animation-timing-function: var(--motion-ease); }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+
+@keyframes surface-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes surface-out { to { opacity: 0; transform: translateY(-4px); } }
+@keyframes panel-in { from { opacity: 0; transform: translateY(-8px) scale(.97); } }
+@keyframes panel-out { to { opacity: 0; transform: translateY(-6px) scale(.97); } }
+::view-transition-old(.page-swap), ::view-transition-old(.content-swap) { animation: surface-out 130ms ease both; }
+::view-transition-new(.page-swap), ::view-transition-new(.content-swap) { animation: surface-in var(--motion-content) var(--motion-ease) both; }
+::view-transition-old(.panel-motion) { transform-origin: top right; animation: panel-out 160ms ease both; }
+::view-transition-new(.panel-motion) { transform-origin: top right; animation: panel-in var(--motion-panel) var(--motion-ease) both; }
+
+/* New messages enter once; subsequent text updates keep the reading position. */
+.chat-message, .chat-thread-row, .chat-suggestion-card, .questionnaire-invitation {
+  transition: opacity var(--motion-panel) ease, transform var(--motion-panel) var(--motion-ease);
+}
+@starting-style {
+  .chat-message, .chat-thread-row, .chat-suggestion-card, .questionnaire-invitation { opacity: 0; transform: translateY(6px); }
+}
+
+/* Native disclosure fallback keeps all nested forms mounted while closed. */
+@supports (interpolate-size: allow-keywords) {
+  .desktop-workspace details { interpolate-size: allow-keywords; }
+  .desktop-workspace details::details-content {
+    height: 0;
+    opacity: 0;
+    overflow: clip;
+    transition: height var(--motion-panel) var(--motion-ease), opacity var(--motion-panel) ease,
+      content-visibility var(--motion-panel) allow-discrete;
+  }
+  .desktop-workspace details[open]::details-content { height: auto; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-workspace *, .desktop-workspace *::before, .desktop-workspace *::after,
+  .desktop-workspace details::details-content {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+  .desktop-workspace :is(button, a):hover, .desktop-workspace :is(button, a):active { scale: none !important; }
+  .desktop-workspace .nav-item:hover, .desktop-workspace .nav-item:active { transform: none !important; }
+  .questionnaire-answer-options label:hover, .questionnaire-answer-options label:active { transform: none !important; }
+  ::view-transition-old(*), ::view-transition-new(*), ::view-transition-group(*) { animation-duration: 0s !important; animation-delay: 0s !important; }
+}

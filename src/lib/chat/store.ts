@@ -1,5 +1,6 @@
 import { isChatSuggestion, type ChatSuggestion } from "./suggestions.ts";
 import { AppError } from "../errors.ts";
+import { isChatReferenceRecord, type ChatReferenceRecord } from "./references.ts";
 import { readStorageItem, writeStoredJson, type StorageAdapter } from "../storage/storage.ts";
 export type { StorageAdapter } from "../storage/storage.ts";
 
@@ -11,6 +12,7 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
   suggestions?: ChatSuggestion[];
+  references?: ChatReferenceRecord;
 }
 
 export interface Conversation {
@@ -42,6 +44,7 @@ function isMessage(value: unknown): value is ChatMessage {
     typeof value.content === "string" &&
     value.content.trim().length > 0 &&
     isTimestamp(value.createdAt) &&
+    (value.references === undefined || (value.role === "assistant" && isChatReferenceRecord(value.references))) &&
     (value.suggestions === undefined || (value.role === "assistant" && Array.isArray(value.suggestions) &&
       value.suggestions.length <= 3 && value.suggestions.every(isChatSuggestion) &&
       new Set(value.suggestions.map((item: ChatSuggestion) => item.id)).size === value.suggestions.length &&
@@ -56,6 +59,11 @@ function validSuggestionSources(messages: ChatMessage[]): boolean {
   }));
 }
 
+function validReferenceSources(messages: ChatMessage[]): boolean {
+  return messages.every((message, index) => message.references === undefined ||
+    (messages[index - 1]?.role === "user" && messages[index - 1].id === message.references.sourceMessageId));
+}
+
 function isConversation(value: unknown): value is Conversation {
   return (
     isRecord(value) &&
@@ -64,7 +72,7 @@ function isConversation(value: unknown): value is Conversation {
     isTimestamp(value.createdAt) &&
     isTimestamp(value.updatedAt) &&
     Array.isArray(value.messages) &&
-    value.messages.every(isMessage) && validSuggestionSources(value.messages)
+    value.messages.every(isMessage) && validSuggestionSources(value.messages) && validReferenceSources(value.messages)
   );
 }
 
@@ -114,6 +122,7 @@ export function createChatStore(storage: StorageAdapter) {
       id: string,
       role: ChatMessage["role"],
       content: string,
+      references?: ChatReferenceRecord,
     ): ChatMessage {
       const trimmed = content.trim();
       if (!trimmed) throw new AppError("VALIDATION_ERROR", "消息内容不能为空。");
@@ -121,12 +130,17 @@ export function createChatStore(storage: StorageAdapter) {
       const state = getState();
       const conversation = state.conversations.find((item) => item.id === id);
       if (!conversation) throw new AppError("NOT_FOUND", "对话不存在，请重新选择。");
+      if (references !== undefined && (role !== "assistant" || !isChatReferenceRecord(references) ||
+          conversation.messages.at(-1)?.role !== "user" || conversation.messages.at(-1)?.id !== references.sourceMessageId)) {
+        throw new AppError("VALIDATION_ERROR", "参考资料记录或对应提问无效，回复未保存。");
+      }
       const now = new Date().toISOString();
       const message: ChatMessage = {
         id: crypto.randomUUID(),
         role,
         content: trimmed,
         createdAt: now,
+        ...(references ? { references } : {}),
       };
       conversation.messages.push(message);
       if (conversation.messages.length === 1 && role === "user") {

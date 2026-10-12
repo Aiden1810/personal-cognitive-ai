@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useChatData } from "@/lib/chat/client";
 import { useGoalData } from "@/lib/goals/client";
 import { useProfileData } from "@/lib/profile/client";
@@ -36,6 +36,10 @@ export function ChatSuggestionCard({ suggestion, conversationId, messageId, conv
   const [expectedGoal, setExpectedGoal] = useState<UserGoal | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const confirming = useRef(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const handledRef = useRef<HTMLParagraphElement>(null);
+  const wasEditing = useRef(false);
   const label = labels[suggestion.kind];
   const existingGoal = suggestion.kind === "goal" ? goals.state?.goals.find((item) => item.dimension === suggestion.dimension) : undefined;
   const archiveTarget = suggestion.kind === "archive" ? usableProfileInsights(profile.state?.insights ?? [], conversations)
@@ -45,6 +49,16 @@ export function ChatSuggestionCard({ suggestion, conversationId, messageId, conv
   const dataError = suggestion.kind === "archive" ? profile.error : suggestion.kind === "outcome" ? goals.error ?? outcomes.error : goals.error;
   const ready = suggestion.kind === "archive" ? profile.ready : suggestion.kind === "outcome" ? goals.ready && outcomes.ready : goals.ready;
   const stale = suggestion.kind === "archive" ? !archiveTarget : suggestion.kind === "outcome" ? !outcomeTarget : false;
+  const reviewing = editing && suggestion.status === "pending";
+
+  useLayoutEffect(() => {
+    if (wasEditing.current && !reviewing) {
+      const opener = openButtonRef.current;
+      const target = opener && !opener.disabled ? opener : handledRef.current ?? cardRef.current;
+      target?.focus({ preventScroll: true });
+    }
+    wasEditing.current = reviewing;
+  }, [reviewing]);
 
   function close() { setEditing(false); setFailure(null); }
   function open() { setExpectedGoal(existingGoal ? { ...existingGoal } : null); setFailure(null); setEditing(true); }
@@ -67,12 +81,12 @@ export function ChatSuggestionCard({ suggestion, conversationId, messageId, conv
     } finally { confirming.current = false; }
   }
 
-  if (suggestion.status !== "pending") return <p className="chat-suggestion-handled" role="status">
+  if (suggestion.status !== "pending") return <p ref={handledRef} tabIndex={-1} className="chat-suggestion-handled" role="status">
     {suggestion.status === "dismissed" ? "已忽略这条建议" : suggestion.kind === "goal" ? "目标已保存" : suggestion.kind === "archive" ? "旧记忆已归档" : "行动已保存"}
     {suggestion.status === "completed" && <Link href={suggestion.kind === "outcome" ? "/progress" : "/profile"}>查看 ↗</Link>}
   </p>;
 
-  return <article className="chat-suggestion-card" aria-label={label.title}>
+  return <article ref={cardRef} tabIndex={-1} className="chat-suggestion-card" aria-label={label.title}>
     <header><span>AI 操作建议 · 待确认</span><h3>{label.title}</h3></header>
     <p className="chat-suggestion-main">{suggestion.kind === "goal" ? suggestion.intention : suggestion.kind === "archive" ? suggestion.insightStatement : suggestion.action}</p>
     <p className="chat-suggestion-reason">{suggestion.reason}</p>
@@ -105,7 +119,7 @@ export function ChatSuggestionCard({ suggestion, conversationId, messageId, conv
           idPrefix={"suggested-outcome-" + suggestion.id} onSave={(_goal, action, result, rating) => !!confirm({ kind: "outcome", action, result, rating })} onCancel={close} />
       </>}
     </fieldset> : <div className="profile-actions">
-      <button type="button" onClick={open} disabled={busy || !ready || !!dataError || stale}>{label.button}</button>
+      <button ref={openButtonRef} type="button" onClick={open} disabled={busy || !ready || !!dataError || stale}>{label.button}</button>
       <button type="button" onClick={dismiss} disabled={busy}>忽略建议</button>
     </div>}
     {editing && (suggestion.kind === "archive" || stale || !!dataError) && <button type="button" className="text-button" onClick={close}>取消</button>}

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useRef } from "react";
+import { startTransition, useEffect, useState, useRef, ViewTransition } from "react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import { TRAIT_DIMENSIONS, type ProfileInsight, type QuestionnaireAnswer } from "@/types/cognitive";
 import { useProfileData } from "@/lib/profile/client";
 import { ANSWER_DETAILS, TRAIT_DETAILS, TRAIT_LEVEL_DETAILS, QUESTIONNAIRE_QUESTIONS, buildQuestionnaireInsights, isTraitLevel, type QuestionnaireAnswers } from "@/lib/profile/questionnaire";
@@ -12,6 +13,7 @@ export function TraitQuestionnaire() {
   const router = useRouter();
   const profile = useProfileData();
   const heading = useRef<HTMLHeadingElement>(null);
+  const hasMoved = useRef(false);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [drafts, setDrafts] = useState<ProfileInsight[]>([]);
@@ -22,14 +24,20 @@ export function TraitQuestionnaire() {
   const questions = QUESTIONNAIRE_QUESTIONS.filter((question) => question.dimension === dimension);
   const answeredCount = Object.keys(answers).length;
 
+  useEffect(() => {
+    if (hasMoved.current) heading.current?.focus();
+  }, [step]);
+
   function move(next: number) {
-    setFormError("");
-    if (next === TRAIT_DIMENSIONS.length) {
-      const items = buildQuestionnaireInsights(answers, {}, new Date().toISOString());
-      setDrafts(items); setIncluded(items.map((item) => item.id));
-    }
-    setStep(next);
-    requestAnimationFrame(() => heading.current?.focus());
+    hasMoved.current = true;
+    startTransition(() => {
+      setFormError("");
+      if (next === TRAIT_DIMENSIONS.length) {
+        const items = buildQuestionnaireInsights(answers, {}, new Date().toISOString());
+        setDrafts(items); setIncluded(items.map((item) => item.id));
+      }
+      setStep(next);
+    });
   }
 
   function save(destination: "/chat" | "/profile") {
@@ -47,7 +55,7 @@ export function TraitQuestionnaire() {
   }
 
   return <section className="trait-questionnaire" aria-labelledby="questionnaire-title">
-    <header className="page-heading"><div><p className="questionnaire-kicker">认识你的做事方式</p><h1 id="questionnaire-title">建立初始画像</h1></div><Link href="/chat">返回对话 ↗</Link></header>
+    <header className="page-heading"><div><p className="questionnaire-kicker">认识你的做事方式</p><h1 id="questionnaire-title">建立初始画像</h1></div><Link className="icon-link" href="/chat">返回对话<ArrowUpRight size={16} aria-hidden="true" /></Link></header>
     {!profile.ready ? <p role="status" className="loading">正在读取资料…</p> : <>
       <p className="questionnaire-intro">回想最近四周的学习或项目经历，选择实际发生的情况。可以跳题；不确定和没有相关经历都不会算作低档。</p>
       <p className="simple-note">确认保存后，相关画像才会供后续 AI 回答参考。问卷在本浏览器整理；聊天读取相关资料时会发送给模型服务。它是近期自述，不是人格测评。</p>
@@ -56,7 +64,9 @@ export function TraitQuestionnaire() {
       <div className="questionnaire-progress" aria-label={`已回答 ${answeredCount} 题，共 15 题`}>
         <progress value={reviewing ? 5 : step} max={5} /><span>{reviewing ? "核对画像" : `第 ${step + 1} 组 / 共 5 组`} · 已回答 {answeredCount}/15</span>
       </div>
-      <h2 ref={heading} tabIndex={-1} className="questionnaire-step-heading">{reviewing ? "这些描述符合现在的你吗？" : TRAIT_DETAILS[dimension].label}</h2>
+      <ViewTransition name="questionnaire-step" update="content-swap">
+      <div className="questionnaire-step">
+      <h2 ref={heading} tabIndex={-1} className="questionnaire-step-heading">{reviewing ? "这些描述符合现在的你吗" : TRAIT_DETAILS[dimension].label}</h2>
       {reviewing ? <>
         <p className="simple-note">按答案整理的档位只是草稿。请核对、修改描述与档位，再选择要记住的项目。档位概括行为频率，不是能力分数。</p>
         <details className="questionnaire-rules"><summary>档位草稿如何整理？</summary><p>至少两题有“很少／有时／经常”的回答，才建议档位；同档出现两次时建议对应档位。“很少”和“经常”同时出现，或答案没有多数时，保留“随情境变化”。其他情况暂不确定。这是产品整理规则，未经心理测量验证。</p></details>
@@ -85,17 +95,20 @@ export function TraitQuestionnaire() {
               {Object.entries(ANSWER_DETAILS).map(([value, details]) => <label className={answers[question.id] === value ? "is-selected" : undefined} key={value}>
                 <input type="radio" name={question.id} value={value} checked={answers[question.id] === value} onChange={() => setAnswers((current) => ({ ...current, [question.id]: value as QuestionnaireAnswer }))} />
                 <strong>{details.label}</strong><small>{details.description}</small>
+                {answers[question.id] === value && <Check className="questionnaire-selected-icon" size={14} aria-hidden="true" />}
               </label>)}
             </div>
             {answers[question.id] && <button type="button" className="text-button" onClick={() => setAnswers((current) => { const next = { ...current }; delete next[question.id]; return next; })}>清除选择</button>}
           </fieldset>)}
         </div>
         <div className="questionnaire-actions">
-          <button type="button" className="button primary" onClick={() => move(step + 1)}>{step === 4 ? "核对初始画像" : "下一组"}</button>
-          {step > 0 && <button type="button" className="button secondary" onClick={() => move(step - 1)}>上一组</button>}
-          <button type="button" className="text-button" onClick={skip}>跳过问卷，开始对话</button>
+          <button type="button" className="button primary" onClick={() => move(step + 1)}>{step === 4 ? "核对初始画像" : "下一组"}<ArrowRight size={16} aria-hidden="true" /></button>
+          {step > 0 && <button type="button" className="button secondary" onClick={() => move(step - 1)}><ArrowLeft size={16} aria-hidden="true" />上一组</button>}
+          <button type="button" className="text-button" onClick={skip}>跳过问卷 开始对话</button>
         </div>
       </>}
+      </div>
+      </ViewTransition>
     </>}
   </section>;
 }
