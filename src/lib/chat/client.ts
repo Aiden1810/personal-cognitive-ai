@@ -39,10 +39,11 @@ function refresh() {
       errorCode: null,
     };
   } catch (error) {
+    const failure = errorState(error, "读取本地对话失败。");
     snapshot = {
-      state: null,
+      state: failure.errorCode === "STORAGE_ACCESS_DENIED" || failure.errorCode === "STORAGE_READ_FAILED" ? snapshot.state : null,
       ready: true,
-      ...errorState(error, "读取本地对话失败。"),
+      ...failure,
     };
   }
 }
@@ -53,7 +54,10 @@ function getSnapshot() {
 }
 
 function subscribe(listener: () => void) {
+  const wasUnsubscribed = listeners.size === 0;
   listeners.add(listener);
+  // Storage events can be missed while the page is unmounted.
+  if (wasUnsubscribed) { refresh(); publish(); }
   const onStorage = (event: StorageEvent) => {
     if (event.key === CHAT_STORAGE_KEY || event.key === null) {
       refresh();
@@ -98,6 +102,7 @@ export function useChatData() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return {
     ...data,
+    retryLoad: () => { refresh(); publish(); },
     createConversation: () => execute((store) => store.createConversation()),
     appendMessage: (id: string, role: ChatMessage["role"], content: string, references?: ChatReferenceRecord) =>
       execute((store) => store.appendMessage(id, role, content, references)),

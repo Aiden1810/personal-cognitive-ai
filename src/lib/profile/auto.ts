@@ -21,6 +21,19 @@ export function shouldAutoExtract(conversation: Conversation, state: AutoProfile
   return users.length - index - 1 >= 4;
 }
 
+export function canCommitAutoExtraction(
+  source: Conversation,
+  started: AutoProfileState,
+  latest: Conversation | null,
+  current: AutoProfileState,
+): boolean {
+  if (!started.enabled || !current.enabled || !latest || latest.id !== source.id ||
+      current.checkpoints[source.id] !== started.checkpoints[source.id]) return false;
+  return source.messages.filter((message) => message.role === "user").every((message) =>
+    latest.messages.some((item) => item.id === message.id && item.role === "user" && item.content === message.content)
+  );
+}
+
 export function createAutoProfileStore(storage: StorageAdapter) {
   function getState(): AutoProfileState {
     const raw = readStorageItem(storage, AUTO_PROFILE_STORAGE_KEY, "无法读取自动提取设置，请检查浏览器存储权限。");

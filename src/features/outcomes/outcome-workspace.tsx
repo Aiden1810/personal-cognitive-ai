@@ -26,13 +26,15 @@ export function OutcomeWorkspace() {
   return (
     <section className="outcome-workspace" aria-labelledby="outcome-title">
       <header className="page-heading"><h1 id="outcome-title">行动记录</h1></header>
-      {!goals.ready || !outcomes.ready ? <p className="loading" role="status">正在加载…</p> :
-        goals.error || outcomes.error ? <div className="error-notice" role="alert">
-          {goals.error ?? outcomes.error}
-          {outcomes.error && <button type="button" className="text-button" onClick={() => {
+      {!goals.ready || !outcomes.ready ? <p className="loading" role="status">正在加载…</p> : <>
+        {(goals.error || outcomes.error) && <div className="error-notice" role="alert">
+          {goals.error && <p>{goals.error} <button type="button" className="text-button" onClick={goals.retryLoad}>重新读取目标资料</button></p>}
+          {outcomes.error && <p>{outcomes.error} <button type="button" className="text-button" onClick={outcomes.retryLoad}>重新读取行动记录</button></p>}
+          {outcomes.errorCode === "INVALID_STORED_DATA" && <button type="button" className="text-button" onClick={() => {
             if (window.confirm("清空所有行动记录？此操作无法撤销。")) outcomes.resetOutcomes();
           }}>清空损坏的记录资料</button>}
-        </div> : <>
+        </div>}
+        {goals.state && outcomes.state && <>
           <div className="outcome-summary" aria-label="用户自评记录概况">
             <div><strong>{entries.length}</strong><span>次记录</span></div>
             <div><strong>{summary.toward}</strong><span>次自评有进展</span></div>
@@ -59,7 +61,8 @@ export function OutcomeWorkspace() {
                     </p> : <p>同一目标记录满 6 次后，可比较前后变化。</p>}
                   </details>
                 </div>
-                <OutcomeEditor goal={selectedGoal} onSave={outcomes.add} />
+                {goals.error && <p className="simple-note">目标资料尚未重新读取，草稿保留；重新读取成功后才能保存行动。</p>}
+                <OutcomeEditor goal={selectedGoal} disabled={!!goals.error} onSave={outcomes.add} />
               </div>}
             </section>
             <section className="outcome-panel outcome-history" aria-labelledby="outcome-history-title">
@@ -83,6 +86,7 @@ export function OutcomeWorkspace() {
             </section>
           </div>
         </>}
+      </>}
     </section>
   );
 }

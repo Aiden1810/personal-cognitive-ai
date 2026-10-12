@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import type { Conversation } from "@/lib/chat/store";
+import { getSavedConversation } from "@/lib/chat/client";
 import { requestProfileCandidates } from "@/lib/profile/api";
 import { useProfileData } from "@/lib/profile/client";
 import type { ProfileInsight, ProfileScope } from "@/types/cognitive";
@@ -23,13 +24,15 @@ export function ProfileReviewPanel({
   conversation,
   conversations,
   busy,
+  openRequest = 0,
 }: {
   conversation: Conversation | null;
   conversations: Conversation[];
   busy: boolean;
+  openRequest?: number;
 }) {
   const {
-    state, ready, error, addCandidates, confirm, reject, edit, deleteInsight, resetProfile,
+    state, ready, error, errorCode, retryLoad, addCandidates, confirm, reject, edit, deleteInsight, resetProfile,
   } = useProfileData();
   const auto = useAutoProfileData();
   const [analyzing, setAnalyzing] = useState(false);
@@ -38,6 +41,15 @@ export function ProfileReviewPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [draftScope, setDraftScope] = useState<ProfileScope | "">("");
+  const panelRef = useRef<HTMLDetailsElement>(null);
+  const analyzeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (openRequest && panelRef.current) {
+      panelRef.current.open = true;
+      const target = analyzeRef.current?.disabled ? panelRef.current.querySelector("summary") : analyzeRef.current;
+      target?.focus({ preventScroll: true });
+    }
+  }, [openRequest]);
   const items = (state?.insights ?? []).filter((insight) =>
     insight.status === "candidate" && insight.evidence.some((source) => source.kind !== "questionnaire" && source.conversationId === conversation?.id)
   );
@@ -51,13 +63,15 @@ export function ProfileReviewPanel({
     setAnalysisMessage(null);
     try {
       const candidates = await requestProfileCandidates(conversation, undefined, state?.insights ?? []);
+      if (!getSavedConversation(conversation.id)) throw new Error("原对话已删除，本次整理结果未保存。");
       const added = addCandidates(candidates);
+      if (added === null) throw new Error("整理结果未能保存，请处理本地资料错误后重试。");
       if (added !== null) {
-        auto.markProcessed(conversation);
+        const processed = auto.markProcessed(conversation);
         const result = added > 0
           ? `发现 ${added} 条新记忆，请核对原话后确认。`
           : "这次没有发现新记忆。";
-        setAnalysisMessage(result);
+        setAnalysisMessage(processed ? result : `${result} 自动整理进度未保存，请重试读取设置。`);
       }
     } catch (failure) {
       setAnalysisError(failure instanceof Error ? failure.message : "画像提取失败，请稍后重试。");
@@ -89,7 +103,7 @@ export function ProfileReviewPanel({
   }
 
   return (
-    <details className="profile-review" open={error ? true : undefined}>
+    <details className="profile-review" ref={panelRef} open={error ? true : undefined}>
       <summary>对话记忆{items.length > 0 ? ` · ${items.length} 条待确认` : ""}</summary>
       <div className="profile-review-body">
         <p>从近期对话整理记忆，确认后用于后续回答。</p>
@@ -109,10 +123,11 @@ export function ProfileReviewPanel({
             onChange={(event) => auto.setEnabled(event.target.checked, conversations)} />
           <span><strong>自动整理新记忆</strong><small>将近期发言发送给 DeepSeek 整理，结果待你确认。</small></span>
         </label>
-        {auto.error && <div className="error-notice" role="alert">{auto.error} 自动提取已暂停。</div>}
+        {auto.error && <div className="error-notice" role="alert">{auto.error} 自动提取已暂停。 <button type="button" className="text-button" onClick={auto.retryLoad}>重试读取设置</button></div>}
         <button
           type="button"
           className="profile-analyze-button"
+          ref={analyzeRef}
           onClick={() => void analyze()}
           disabled={!ready || !!error || !hasUserMessage || analyzing || busy}
         >
@@ -122,10 +137,11 @@ export function ProfileReviewPanel({
         {error && (
           <div className="error-notice" role="alert">
             {error}{" "}
-            <button type="button" className="text-button" onClick={clearProfile}>明确清空本地画像</button>
+            <button type="button" className="text-button" onClick={retryLoad}>重试读取画像</button>
+            {errorCode === "INVALID_STORED_DATA" && <button type="button" className="text-button" onClick={clearProfile}>明确清空本地画像</button>}
           </div>
         )}
-        {analysisError && <div className="error-notice" role="alert">{analysisError}</div>}
+        {analysisError && <div className="error-notice" role="alert">{analysisError} <button type="button" className="text-button" disabled={!ready || !!error || !hasUserMessage || analyzing || busy} onClick={() => void analyze()}>重试整理</button></div>}
         {analysisMessage && <p role="status" className="profile-muted">{analysisMessage}</p>}
         {items.map((item) => (
           <article className="profile-insight" key={item.id}>

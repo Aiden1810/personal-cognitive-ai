@@ -13,7 +13,7 @@ import { usableProfileInsights } from "@/lib/profile/usable";
 import { ProfileReviewPanel } from "@/features/profile/profile-review-panel";
 import type { ChatMessage } from "@/lib/chat/store";
 import { getSavedAutoProfileState, useAutoProfileData } from "@/lib/profile/auto-client";
-import { shouldAutoExtract } from "@/lib/profile/auto";
+import { canCommitAutoExtraction, shouldAutoExtract } from "@/lib/profile/auto";
 import { requestProfileCandidates } from "@/lib/profile/api";
 import type { ChatContextSelection } from "@/lib/chat/context";
 import { ChatContextPanel, type ContextRequestPhase } from "./chat-context-panel";
@@ -32,6 +32,8 @@ export function ChatWorkspace() {
     state,
     ready,
     error,
+    errorCode,
+    retryLoad,
     createConversation,
     appendMessage,
     setSuggestions,
@@ -42,6 +44,7 @@ export function ChatWorkspace() {
     state: profileState,
     ready: profileReady,
     error: profileError,
+    retryLoad: profileRetryLoad,
     removeByConversation,
     resetProfile,
     addCandidates,
@@ -49,7 +52,7 @@ export function ChatWorkspace() {
   } = useProfileData();
   const auto = useAutoProfileData();
   const preferences = useResponsePreferences();
-  const { state: goalState, ready: goalReady, error: goalError } = useGoalData();
+  const { state: goalState, ready: goalReady, error: goalError, retryLoad: goalRetryLoad } = useGoalData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -60,6 +63,7 @@ export function ChatWorkspace() {
   const [semanticEnabled, setSemanticEnabled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [referencesOpen, setReferencesOpen] = useState(false);
+  const [memoryOpenRequest, setMemoryOpenRequest] = useState(0);
   const [suggestionChecks, setSuggestionChecks] = useState<Record<string, { pending: boolean; error?: string }>>({});
   const suggestionPending = useRef(new Set<string>());
   const [requestContexts, setRequestContexts] = useState<Record<string, {
@@ -73,6 +77,8 @@ export function ChatWorkspace() {
   const messageAreaRef = useRef<HTMLDivElement>(null);
   const referencesButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const memoryButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const conversations = state?.conversations ?? [];
   const visibleConversations = conversations.filter((item) => item.messages.length > 0);
   const pendingMemories = (profileState?.insights ?? []).filter((item) => item.status === "candidate").length;
@@ -108,6 +114,10 @@ export function ChatWorkspace() {
     setAutoMessage({ id, message: "正在整理新的画像候选…", error: false });
     try {
       const candidates = await requestProfileCandidates(current, undefined, profileState?.insights ?? []);
+      if (!canCommitAutoExtraction(current, settings, getSavedConversation(id), getSavedAutoProfileState())) {
+        setAutoMessage(null);
+        return;
+      }
       const added = addCandidates(candidates);
       if (added === null) throw new Error("画像候选保存失败，请检查本地画像数据。");
       if (!auto.markProcessed(current)) throw new Error("自动提取检查点保存失败，请检查浏览器存储。");
@@ -194,7 +204,7 @@ export function ChatWorkspace() {
   }
 
   function retryReply() {
-    if (!selected || pendingRef.current || !goalReady || !!goalError || !preferences.ready || !!preferences.error) return;
+    if (!selected || pendingRef.current || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error) return;
     void fetchReply(selected.id, selected.messages);
   }
 
@@ -267,7 +277,7 @@ export function ChatWorkspace() {
         if (event.key !== "Escape" || event.nativeEvent.isComposing || event.defaultPrevented || event.target instanceof HTMLSelectElement || (!settingsOpen && !referencesOpen)) return;
         event.preventDefault();
         if (referencesOpen) referencesButtonRef.current?.focus();
-        else settingsButtonRef.current?.focus();
+        else (settingsTriggerRef.current ?? settingsButtonRef.current)?.focus();
         setReferencesOpen(false); setSettingsOpen(false);
       }}>
         <div className="chat-stage-header">
@@ -275,12 +285,16 @@ export function ChatWorkspace() {
             <h1>{selected?.messages.length ? selected.title : "新对话"}</h1>
           </div>
           <div className="chat-stage-actions">
+            <button ref={memoryButtonRef} type="button" aria-controls="chat-settings-panel" aria-expanded={settingsOpen}
+              onClick={() => { settingsTriggerRef.current = memoryButtonRef.current; setSettingsOpen(true); setReferencesOpen(false); setMemoryOpenRequest((value) => value + 1); }}>
+              对话记忆
+            </button>
             <button ref={referencesButtonRef} type="button" aria-controls="chat-reference-panel" aria-expanded={referencesOpen}
               onClick={() => { setReferencesOpen((open) => !open); setSettingsOpen(false); }}>
               参考资料
             </button>
             <button ref={settingsButtonRef} type="button" aria-controls="chat-settings-panel" aria-expanded={settingsOpen}
-              onClick={() => { setSettingsOpen((open) => !open); setReferencesOpen(false); }}>
+              onClick={() => { settingsTriggerRef.current = settingsButtonRef.current; setSettingsOpen((open) => !open); setReferencesOpen(false); }}>
               对话设置
             </button>
           </div>
@@ -294,22 +308,26 @@ export function ChatWorkspace() {
         {error && (
           <div className="error-notice" role="alert">
             {error}{" "}
+            <button type="button" className="text-button" onClick={retryLoad}>重试读取对话</button>
+            {errorCode === "INVALID_STORED_DATA" &&
             <button type="button" className="text-button" onClick={resetChats}>
               明确清空全部本地对话
-            </button>
+            </button>}
           </div>
         )}
         {profileError && (
           <div className="error-notice" role="alert">
             本地画像读取失败：{profileError} 请打开“对话设置”里的“对话记忆”检查。
+            <button type="button" className="text-button" onClick={profileRetryLoad}>重试读取画像</button>
           </div>
         )}
         {goalError && (
           <div className="error-notice" role="alert">
             本地目标读取失败：{goalError} <Link href="/profile">到我的画像检查目标</Link>
+            <button type="button" className="text-button" onClick={goalRetryLoad}>重试读取目标</button>
           </div>
         )}
-        {preferences.error && <div className="error-notice" role="alert">{preferences.error} 请检查个人设置，或从<Link href="/backup">备份</Link>恢复。</div>}
+        {preferences.error && <div className="error-notice" role="alert">{preferences.error} 请检查个人设置，或从<Link href="/backup">备份</Link>恢复。 <button type="button" className="text-button" onClick={preferences.retryLoad}>重试读取设置</button></div>}
         {replyError && selected && replyError.id === selected.id && (
           <div className="error-notice" role="alert">{replyError.message} 你的消息已保留，可以重试。</div>
         )}
@@ -340,7 +358,7 @@ export function ChatWorkspace() {
           <details className="chat-tools" id="chat-settings-panel" open={settingsOpen}
             inert={!settingsOpen}
             >
-          <summary onClick={(event) => { event.preventDefault(); settingsButtonRef.current?.focus(); setSettingsOpen(false); }}>
+          <summary onClick={(event) => { event.preventDefault(); (settingsTriggerRef.current ?? settingsButtonRef.current)?.focus(); setSettingsOpen(false); }}>
             <span className="chat-panel-title">对话设置</span>
             <span className="chat-panel-close"><span>收起</span><X size={16} aria-hidden="true" /></span>
           </summary>
@@ -362,7 +380,7 @@ export function ChatWorkspace() {
                   <details className="simple-more"><summary>技术说明</summary><p className="chat-context-note">使用关键词与本地语义向量匹配问题、已确认画像和目标，不读取全部历史聊天。实验仍可能漏选或误选。</p></details>
                 </div>
               </details>
-              <ProfileReviewPanel key={selected?.id ?? "empty"} conversation={selected} conversations={conversations} busy={!!pendingId || autoBusy} />
+              <ProfileReviewPanel key={selected?.id ?? "empty"} conversation={selected} conversations={conversations} busy={!!pendingId || autoBusy} openRequest={memoryOpenRequest} />
               {autoMessage && !autoMessage.error && selected?.id === autoMessage.id && <p className="chat-muted" role="status">{autoMessage.message}</p>}
               {pendingMemories > 0 && <Link className="chat-memory-link icon-link" href="/profile#pending-memories">到我的画像查看全部待确认记忆<ArrowUpRight size={15} aria-hidden="true" /></Link>}
             </div>
@@ -423,7 +441,7 @@ export function ChatWorkspace() {
         </div>
         {pendingId === selected?.id && <p className="chat-pending" role="status"><span className="chat-availability-dot" />知衡正在思考…</p>}
         {selected?.messages.at(-1)?.role === "user" && !pendingId && !error && (
-          <button type="button" className="text-button chat-retry-button" onClick={retryReply}>
+          <button type="button" className="text-button chat-retry-button" onClick={retryReply} disabled={!profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error}>
             重试回复
           </button>
         )}

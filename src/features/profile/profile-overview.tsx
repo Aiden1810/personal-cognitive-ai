@@ -206,13 +206,16 @@ export function ProfileOverview() {
   return (
     <section className="profile-overview profile-desktop" aria-labelledby="profile-title">
       <header className="page-heading"><div><h1 id="profile-title">我的画像</h1><p className="simple-note">从五项具体做事方式，了解当前状态与希望改变的方向。</p></div><Link className="questionnaire-entry" href="/onboarding">{profile.state?.onboarding?.status === "completed" ? "重新填写问卷" : "填写初始问卷"}</Link></header>
-      {!chat.ready || !profile.ready || !goals.ready ? <p className="loading" role="status">正在加载…</p> :
-        chat.error || profile.error || goals.error ? <div className="error-notice" role="alert">
-          {chat.error ?? profile.error ?? goals.error}
-          {goals.error && <button type="button" className="text-button" onClick={() => {
+      {!chat.ready || !profile.ready || !goals.ready ? <p className="loading" role="status">正在加载…</p> : <>
+        {(chat.error || profile.error || goals.error) && <div className="error-notice" role="alert">
+          {chat.error && <p>{chat.error} <button type="button" className="text-button" onClick={chat.retryLoad}>重新读取对话资料</button></p>}
+          {profile.error && <p>{profile.error} <button type="button" className="text-button" onClick={profile.retryLoad}>重新读取画像资料</button></p>}
+          {goals.error && <p>{goals.error} <button type="button" className="text-button" onClick={goals.retryLoad}>重新读取目标资料</button></p>}
+          {goals.errorCode === "INVALID_STORED_DATA" && <button type="button" className="text-button" onClick={() => {
             if (window.confirm("清空当前浏览器里的全部目标？此操作无法撤销。")) goals.resetGoals();
           }}>清空损坏的目标资料</button>}
-        </div> : <>
+        </div>}
+        {chat.state && profile.state && goals.state && <>
           <div className="profile-navigation-row">
             <nav className="profile-dimension-nav" aria-label="选择画像维度">
               {traitGroups.map((group) => (
@@ -270,6 +273,7 @@ export function ProfileOverview() {
           </div>
           <p className="profile-overview-footnote">{activeInsights.length} 条有效确认记录 · {activeGoalCount} 个启用目标。当前自评、目标档位、改变意愿与 AI 帮助方式分别保存。</p>
         </>}
+      </>}
     </section>
   );
 }

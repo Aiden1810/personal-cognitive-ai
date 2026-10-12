@@ -23,7 +23,14 @@ function publish() { listeners.forEach((listener) => listener()); }
 function refresh() {
   initialized = true;
   try { snapshot = { state: createAssessmentStore(getBrowserStorage()).getState(), ready: true, error: null, errorCode: null }; }
-  catch (error) { snapshot = { state: null, ready: true, ...errorState(error, "读取画像标记失败。") }; }
+  catch (error) {
+    const failure = errorState(error, "读取画像标记失败。");
+    snapshot = {
+      state: failure.errorCode === "STORAGE_ACCESS_DENIED" || failure.errorCode === "STORAGE_READ_FAILED" ? snapshot.state : null,
+      ready: true,
+      ...failure,
+    };
+  }
 }
 
 function getSnapshot() {
@@ -32,7 +39,10 @@ function getSnapshot() {
 }
 
 function subscribe(listener: () => void) {
+  const wasUnsubscribed = listeners.size === 0;
   listeners.add(listener);
+  // Storage events can be missed while the page is unmounted.
+  if (wasUnsubscribed) { refresh(); publish(); }
   const onStorage = (event: StorageEvent) => {
     if (event.key === ASSESSMENT_STORAGE_KEY || event.key === null) { refresh(); publish(); }
   };
@@ -56,6 +66,7 @@ export function useAssessmentData() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return {
     ...data,
+    retryLoad: () => { refresh(); publish(); },
     setLabel: (id: string, label: AssessmentLabel | null) => execute((store) => store.setLabel(id, label)),
     addTension: (firstId: string, secondId: string, note: string) =>
       execute((store) => { store.addTension(firstId, secondId, note); }),

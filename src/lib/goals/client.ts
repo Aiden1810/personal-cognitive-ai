@@ -31,10 +31,11 @@ function refresh() {
   try {
     snapshot = { state: createGoalStore(getBrowserStorage()).getState(), ready: true, error: null, errorCode: null };
   } catch (error) {
+    const failure = errorState(error, "读取本地目标失败。");
     snapshot = {
-      state: null,
+      state: failure.errorCode === "STORAGE_ACCESS_DENIED" || failure.errorCode === "STORAGE_READ_FAILED" ? snapshot.state : null,
       ready: true,
-      ...errorState(error, "读取本地目标失败。"),
+      ...failure,
     };
   }
 }
@@ -45,7 +46,10 @@ function getSnapshot() {
 }
 
 function subscribe(listener: () => void) {
+  const wasUnsubscribed = listeners.size === 0;
   listeners.add(listener);
+  // Storage events can be missed while the page is unmounted.
+  if (wasUnsubscribed) { refresh(); publish(); }
   const onStorage = (event: StorageEvent) => {
     if (event.key === GOAL_STORAGE_KEY || event.key === null) {
       refresh();
@@ -80,6 +84,7 @@ export function useGoalData() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return {
     ...data,
+    retryLoad: refreshGoalData,
     upsert: (dimension: CognitiveDimension, intention: string, willingness?: GoalWillingness | null, targetLevel?: TraitLevel | null) =>
       execute((store) => store.upsert(dimension, intention, willingness, targetLevel)),
     pause: (id: string) => execute((store) => { store.pause(id); return true; }),

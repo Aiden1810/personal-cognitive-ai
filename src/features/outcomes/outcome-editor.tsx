@@ -8,13 +8,14 @@ export const OUTCOME_RATING_LABELS: Record<OutcomeRating, string> = {
   toward: "有进展", unclear: "还不确定", away: "偏离目标",
 };
 
-export function OutcomeEditor({ goal, initialAction = "", initialResult = "", idPrefix = "outcome", onSave, onCancel }: {
+export function OutcomeEditor({ goal, initialAction = "", initialResult = "", idPrefix = "outcome", onSave, onCancel, disabled = false }: {
   goal: UserGoal;
   initialAction?: string;
   initialResult?: string;
   idPrefix?: string;
   onSave: (goal: UserGoal, action: string, result: string, rating: OutcomeRating) => boolean;
   onCancel?: () => void;
+  disabled?: boolean;
 }) {
   const [action, setAction] = useState(initialAction);
   const [result, setResult] = useState(initialResult);
@@ -23,6 +24,7 @@ export function OutcomeEditor({ goal, initialAction = "", initialResult = "", id
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (disabled) return;
     if (onSave(goal, action, result, rating)) {
       setAction(""); setResult(""); setRating("unclear"); setSaved(true);
     }
@@ -45,7 +47,7 @@ export function OutcomeEditor({ goal, initialAction = "", initialResult = "", id
       </label>)}
     </fieldset>
     <div className="profile-actions">
-      <button type="submit" className="outcome-save" disabled={!action.trim() || !result.trim()}>{onCancel ? "确认保存行动" : "保存记录"}</button>
+      <button type="submit" className="outcome-save" disabled={disabled || !action.trim() || !result.trim()}>{onCancel ? "确认保存行动" : "保存记录"}</button>
       {onCancel && <button type="button" onClick={onCancel}>取消</button>}
     </div>
     {saved && <p className="outcome-saved" role="status">已保存。</p>}

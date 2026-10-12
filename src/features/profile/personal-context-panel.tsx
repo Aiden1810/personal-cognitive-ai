@@ -46,7 +46,7 @@ export function PersonalContextPanel() {
   return <details id="personal-context" className="profile-tool personal-context-panel" ref={details}>
     <summary><strong>我的背景与回答要求</strong><span>{context ? context.enabled ? "已开启" : "已停用" : "自由填写"}</span></summary>
     {!data.ready && <p role="status">正在读取个人设置…</p>}
-    {data.error && <p role="alert" className="error-notice">{data.error} 草稿可保留并重试；资料损坏时可从<Link href="/backup">备份</Link>恢复。</p>}
+    {data.error && <p role="alert" className="error-notice">{data.error} 草稿可保留并重试；资料损坏时可从<Link href="/backup">备份</Link>恢复。 <button type="button" className="text-button" onClick={data.retryLoad}>重试读取设置</button></p>}
     {data.ready && data.state && <PersonalContextForm key={context?.updatedAt ?? "empty"} context={context} onSave={save} onClear={clear} />}
     {message && <p className="personal-context-status" role="status">{message}</p>}
   </details>;

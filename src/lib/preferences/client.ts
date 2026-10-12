@@ -15,7 +15,10 @@ function publish() { listeners.forEach((listener) => listener()); }
 function refresh() {
   initialized = true;
   try { snapshot = { state: createResponsePreferenceStore(getBrowserStorage()).getState(), ready: true, error: null, errorCode: null }; }
-  catch (error) { snapshot = { ...snapshot, ready: true, ...errorState(error, "回答偏好读取失败。") }; }
+  catch (error) {
+    const failure = errorState(error, "回答偏好读取失败。");
+    snapshot = { state: failure.errorCode === "STORAGE_ACCESS_DENIED" || failure.errorCode === "STORAGE_READ_FAILED" ? snapshot.state : null, ready: true, ...failure };
+  }
 }
 function getSnapshot() { if (!initialized) refresh(); return snapshot; }
 function subscribe(listener: () => void) {
@@ -40,6 +43,7 @@ function execute(action: (store: ReturnType<typeof createResponsePreferenceStore
 export function useResponsePreferences() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return { ...data,
+    retryLoad: () => { refresh(); publish(); },
     save: (preferences: ResponsePreferences) => execute((store) => store.save(preferences)),
     savePersonalContext: (input: PersonalContextInput) => execute((store) => store.savePersonalContext(input)),
     clearPersonalContext: () => execute((store) => store.clearPersonalContext()),

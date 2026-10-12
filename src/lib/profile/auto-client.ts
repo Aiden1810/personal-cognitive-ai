@@ -16,11 +16,21 @@ function publish() { listeners.forEach((listener) => listener()); }
 function refresh() {
   initialized = true;
   try { snapshot = { state: createAutoProfileStore(getBrowserStorage()).getState(), ready: true, error: null, errorCode: null }; }
-  catch (error) { snapshot = { state: null, ready: true, ...errorState(error, "自动提取设置读取失败。") }; }
+  catch (error) {
+    const failure = errorState(error, "自动提取设置读取失败。");
+    snapshot = {
+      state: failure.errorCode === "STORAGE_ACCESS_DENIED" || failure.errorCode === "STORAGE_READ_FAILED" ? snapshot.state : null,
+      ready: true,
+      ...failure,
+    };
+  }
 }
 function getSnapshot() { if (!initialized) refresh(); return snapshot; }
 function subscribe(listener: () => void) {
+  const wasUnsubscribed = listeners.size === 0;
   listeners.add(listener);
+  // Storage events can be missed while the page is unmounted.
+  if (wasUnsubscribed) { refresh(); publish(); }
   const onStorage = (event: StorageEvent) => { if (event.key === AUTO_PROFILE_STORAGE_KEY || event.key === null) { refresh(); publish(); } };
   window.addEventListener("storage", onStorage);
   return () => { listeners.delete(listener); window.removeEventListener("storage", onStorage); };
@@ -36,6 +46,7 @@ export function useAutoProfileData() {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initial);
   return {
     ...data,
+    retryLoad: () => { refresh(); publish(); },
     setEnabled: (enabled: boolean, conversations: Conversation[]) => execute((store) => store.setEnabled(enabled, conversations)),
     markProcessed: (conversation: Conversation) => execute((store) => store.markProcessed(conversation)),
     forgetConversation: (id: string) => execute((store) => store.forgetConversation(id)),

@@ -37,7 +37,7 @@ export function ResponsePreferencePanel({ busy }: { busy: boolean }) {
           <button type="button" disabled={!data.ready || busy} onClick={() => { setDraft({ ...DEFAULT_RESPONSE_PREFERENCES }); setSaved(false); }}>恢复默认（保存后生效）</button>
         </div>
         {saved && <p role="status">回答偏好已保存，下次发送消息时生效。</p>}
-        {data.error && <p className="error-notice" role="alert">{data.error} 请重新保存设置后继续聊天。</p>}
+        {data.error && <p className="error-notice" role="alert">{data.error} 请重新保存设置后继续聊天。 <button type="button" className="text-button" onClick={data.retryLoad}>重试读取设置</button></p>}
       </form>
     </details>
   );
