@@ -21,7 +21,7 @@
 - `/backup` 与 `src/lib/backup`：独立本地备份入口，不引用云端 SDK、不经过账户会话刷新。本地 JSON 最多 5 MB（UTF-8 字节），先校验、显示数量、再主动恢复。沿用版本 1 格式，在同一次写入中关闭自动提取并清除旧检查点；写入失败倒序回滚，避免旧大对话和新大画像叠加超出容量。
 - `POST /api/profile/extract` 可附加 `existingInsights`（最多 30 条 `{ dimension, statement, status }`），客户端从本次原话相关的已有记录选取。它们只用于避免重复，不可作为新候选的证据；所有候选仍须引用本次用户原话。字段可省略，以兼容已有调用。姚的审核组件应复用此范围计算，不自行按助手消息截断。
 - `src/lib/profile/auto.ts`：自动提取默认关闭；用户开启时记录当前各对话的最后一条用户消息，从此每新增 4 条触发一次。检查点只用于避免重复请求；关闭开关后不再触发。模型失败或保存失败要展示错误，不能把候选自动确认为事实。
-- `POST /api/profile/reflect`：只在用户点击后调用，输入 `insights` 最多 20 条 `{ id, dimension, statement, quotes }`；由 `/profile` 从已确认且来源有效的洞察及原话摘录构造。服务端固定使用 DeepSeek Flash；输出 `reflection` 含 `strengths`、`growthAreas`、`tensions`，每项都有 `text` 和 `insightIds`。张力须引用两条不同洞察，未知引用会被过滤。结果只在当前页面暂存，不写入画像或聊天上下文。
+- `POST /api/profile/reflect`：只在用户点击后调用，输入 `insights` 最多 100 条 `{ id, dimension, statement, quotes }`，请求 JSON 最多 15 万字符；由 `/profile` 从已确认且来源有效的洞察及原话摘录构造，沿用传入列表末尾选择规则，不等同于全局按时间排序。服务端固定使用 DeepSeek Flash；输出 `reflection` 含 `strengths`、`growthAreas`、`tensions`，每项都有 `text` 和 `insightIds`。张力须引用两条不同洞察，未知引用会被过滤。结果只在当前页面暂存，不写入画像或聊天上下文；独立记忆摘要仍限制 20 条。
 - `src/lib/goals`：每个七维分类最多一个用户填写的目标，状态为 `active` 或 `paused`；目标与当前画像分开保存。聊天只发送启用且相关的目标，页面不得将目标描述成已发生的事实。
 - `UserGoal.willingness` 为可选字段，允许 `not_now`、`slight`、`moderate`、`strong`、`highest` 五档，标签与说明统一在 `src/lib/goals/willingness.ts`。它表示用户自评的改变意愿，旧记录省略该字段。`upsert` 第三个参数省略时保留原值，传 `null` 清除选择；编辑不自动启用已暂停目标。聊天服务校验等级，只发送启用目标的文字含义，不发送百分比。云端快照保留此字段；正规化 `goals` 表通过 `add_goal_willingness` 迁移增加可空字段。
 - `POST /api/chat` 接收上述 JSON，成功返回 `{ "ok": true, "data": { "reply": "模型文字" } }`；失败返回 `{ "ok": false, "error": { "code": "...", "message": "..." } }`。本地缺少 `LLM_API_KEY` 返回错误，不生成示例答案。接口在 production 暂关闭，直到账户隔离和防滥用措施完成。

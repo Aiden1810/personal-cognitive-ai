@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ProfileInsight } from "@/types/cognitive";
 import { requestProfileReflection, selectReflectionSources } from "@/lib/profile/reflection-api";
-import type { ProfileReflection, ReflectionPoint } from "@/lib/profile/reflection";
+import { MAX_REFLECTION_SOURCES, type ProfileReflection, type ReflectionPoint } from "@/lib/profile/reflection";
 
 export function ProfileReflectionPanel({ insights }: { insights: ProfileInsight[] }) {
   const sources = selectReflectionSources(insights);
@@ -61,7 +61,7 @@ export function ProfileReflectionPanel({ insights }: { insights: ProfileInsight[
           {busy ? "正在整理…" : current ? "重新整理" : "开始整理"}
         </button>
       </div>
-      <details className="simple-more"><summary>使用说明</summary><p className="simple-note">最多 20 条已确认记忆及原话会发送给 DeepSeek。结果是临时草稿，不会保存成画像或用于聊天。</p></details>
+      <details className="simple-more"><summary>使用说明</summary><p className="simple-note">最多 {MAX_REFLECTION_SOURCES} 条已确认记忆及原话会发送给 DeepSeek。结果是临时草稿，不会保存成画像或用于聊天。</p></details>
       {sources.length === 0 && <p className="reflection-empty">先记住一条有原话依据的记忆。</p>}
       {error && <div className="error-notice" role="alert">{error}</div>}
       {result && !current && <p className="reflection-empty">画像已变化，旧观察不再显示。需要时可重新生成。</p>}

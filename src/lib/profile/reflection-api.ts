@@ -1,8 +1,8 @@
 import type { ProfileInsight } from "../../types/cognitive.ts";
-import { parseReflectionOutput, type ProfileReflection, type ReflectionSource } from "./reflection.ts";
+import { MAX_REFLECTION_SOURCES, parseReflectionOutput, type ProfileReflection, type ReflectionSource } from "./reflection.ts";
 
-export function selectReflectionSources(insights: ProfileInsight[]): ReflectionSource[] {
-  return insights.slice(-20).map(({ id, dimension, statement, evidence }) => ({
+export function selectReflectionSources(insights: ProfileInsight[], maxSources = MAX_REFLECTION_SOURCES): ReflectionSource[] {
+  return insights.slice(-maxSources).map(({ id, dimension, statement, evidence }) => ({
     id, dimension, statement, quotes: evidence.map(({ excerpt }) => excerpt),
     ...(evidence.some((source) => source.kind === "questionnaire") ? { questionnaireAnsweredAt: [...new Set(evidence.filter((source) => source.kind === "questionnaire").map((source) => source.answeredAt))] } : {}),
   }));

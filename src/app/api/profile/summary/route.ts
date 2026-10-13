@@ -1,4 +1,4 @@
-import { generateMemorySummary, MAX_SUMMARY_REQUEST_CHARACTERS } from "../../../../lib/profile/summary.ts";
+import { generateMemorySummary, MAX_SUMMARY_REQUEST_CHARACTERS, MAX_SUMMARY_SOURCES } from "../../../../lib/profile/summary.ts";
 import { parseReflectionRequest, ReflectionError } from "../../../../lib/profile/reflection.ts";
 import { ChatError } from "../../../../lib/ai/chat.ts";
 
@@ -19,7 +19,7 @@ export async function POST(request: Request): Promise<Response> {
     let body: unknown;
     try { body = JSON.parse(raw); }
     catch { throw new ReflectionError("VALIDATION_ERROR", "请求必须是有效的 JSON。"); }
-    const sources = parseReflectionRequest(body);
+    const sources = parseReflectionRequest(body, MAX_SUMMARY_SOURCES);
     const summary = await generateMemorySummary(sources, { apiKey: process.env.LLM_API_KEY, model: process.env.LLM_MODEL || "deepseek-flash" });
     return Response.json({ ok: true, data: { summary } });
   } catch (error) {

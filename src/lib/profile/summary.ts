@@ -7,10 +7,11 @@ import { usableProfileInsights } from "./usable.ts";
 
 export interface MemorySummarySection { title: string; text: string; insightIds: string[]; }
 export interface MemorySummary { sections: MemorySummarySection[]; }
+export const MAX_SUMMARY_SOURCES = 20;
 export const MAX_SUMMARY_REQUEST_CHARACTERS = 30000;
 
 export function selectMemorySummarySources(insights: ProfileInsight[], conversations: Conversation[]): ReflectionSource[] {
-  const available = selectReflectionSources(usableProfileInsights(insights, conversations));
+  const available = selectReflectionSources(usableProfileInsights(insights, conversations), MAX_SUMMARY_SOURCES);
   const selected: ReflectionSource[] = [];
   for (let index = available.length - 1; index >= 0; index--) {
     if (JSON.stringify({ insights: [available[index], ...selected] }).length <= 24000) selected.unshift(available[index]);
@@ -42,7 +43,7 @@ export function parseMemorySummaryOutput(value: unknown, sources: ReflectionSour
 }
 
 export async function generateMemorySummary(sources: ReflectionSource[], options: ModelOptions): Promise<MemorySummary> {
-  const validated = parseReflectionRequest({ insights: sources });
+  const validated = parseReflectionRequest({ insights: sources }, MAX_SUMMARY_SOURCES);
   const output = await requestModelCompletion([
     { role: "system", content: `你是知衡的记忆摘要整理器。只归纳提供的已确认记录与来源依据，按内容归为最多4个易懂的话题组，例如学习背景、项目与协作、交流偏好、近期做事方式。标题最多30字，每组尽量不超过120字；每组引用支持该段的 insightIds，不能引用输入中没有的编号。资料少时只用一两组，不为填满分组编造。
 保留自述、情境、频率和不确定性。希望、计划和目标不能说成已经实现；一次行为不能升级成长期性格。不要推断新的优势、缺点、诊断或档位；这是一份描述性摘要。questionnaireAnsweredAt 是问卷填写日期，其中的“最近四周”是填写日期之前四周，不能把旧问卷说成当前状态。当前参考时间：${new Date().toISOString()}。

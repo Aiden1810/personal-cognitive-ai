@@ -6,6 +6,15 @@ import type { ReflectionSource } from "../src/lib/profile/reflection.ts";
 
 const source: ReflectionSource = { id: "i1", dimension: "planning", statement: "合成资料：做项目时先拆步骤", quotes: ["做项目时先拆步骤"] };
 
+test("memory summary keeps its separate 20-record limit", async () => {
+  const [record] = buildQuestionnaireInsights({ q4: "often", q5: "often", q6: "sometimes" }, {}, "2026-01-01T00:00:00.000Z");
+  const records = Array.from({ length: 100 }, (_, index) => ({ ...record, id: `i${index}` }));
+  const selected = selectMemorySummarySources(records, []);
+  assert.equal(selected.length, 20);
+  assert.equal(selected[0].id, "i80");
+  await assert.rejects(() => generateMemorySummary(Array.from({ length: 21 }, (_, index) => ({ ...source, id: `i${index}` })), { apiKey: undefined, model: "deepseek-flash" }), /过多/);
+});
+
 test("summaries select only confirmed records with intact evidence and retain questionnaire dates", () => {
   const records = buildQuestionnaireInsights({ q4: "often", q5: "often", q6: "sometimes" }, {}, "2026-01-01T00:00:00.000Z");
   const selected = selectMemorySummarySources([...records, { ...records[0], id: "pending", status: "candidate" }, { ...records[0], id: "archived", status: "archived" }], []);

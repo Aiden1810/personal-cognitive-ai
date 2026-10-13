@@ -1,4 +1,4 @@
-import { generateProfileReflection, parseReflectionRequest, ReflectionError } from "../../../../lib/profile/reflection.ts";
+import { generateProfileReflection, MAX_REFLECTION_REQUEST_CHARACTERS, parseReflectionRequest, ReflectionError } from "../../../../lib/profile/reflection.ts";
 
 export async function POST(request: Request): Promise<Response> {
   if (process.env.NODE_ENV === "production") {
@@ -18,7 +18,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   try {
     const raw = await request.text();
-    if (raw.length > 30000) throw new ReflectionError("VALIDATION_ERROR", "请求内容过长。");
+    if (raw.length > MAX_REFLECTION_REQUEST_CHARACTERS) throw new ReflectionError("VALIDATION_ERROR", "请求内容过长。");
     let body: unknown;
     try { body = JSON.parse(raw); }
     catch { throw new ReflectionError("VALIDATION_ERROR", "请求必须是有效的 JSON。"); }

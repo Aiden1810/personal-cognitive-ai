@@ -1,5 +1,8 @@
 import { COGNITIVE_DIMENSIONS, type CognitiveDimension } from "../../types/cognitive.ts";
 
+export const MAX_REFLECTION_SOURCES = 100;
+export const MAX_REFLECTION_REQUEST_CHARACTERS = 150000;
+
 export interface ReflectionSource {
   id: string;
   dimension: CognitiveDimension;
@@ -26,9 +29,9 @@ function record(value: unknown): value is Record<string, unknown> {
 function text(value: unknown, max: number): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= max;
 }
-export function parseReflectionRequest(value: unknown): ReflectionSource[] {
+export function parseReflectionRequest(value: unknown, maxSources = MAX_REFLECTION_SOURCES): ReflectionSource[] {
   const sources = record(value) ? value.insights : null;
-  if (!Array.isArray(sources) || sources.length < 1 || sources.length > 20 ||
+  if (!Array.isArray(sources) || sources.length < 1 || sources.length > maxSources ||
       !sources.every((item: unknown) => record(item) && text(item.id, 100) &&
         COGNITIVE_DIMENSIONS.some((dimension) => dimension === item.dimension) &&
         text(item.statement, 500) && Array.isArray(item.quotes) &&
