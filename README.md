@@ -109,6 +109,28 @@ npm.cmd run build
 
 `LLM_MODEL` 默认是 `deepseek-flash`。模型变更后重启开发服务。测试时可用虚构消息：在 `/chat` 发送一句话并手动提取候选；到 `/profile` 核对原话、确认画像、填写一个目标，再回到聊天发送下一条消息。暂停目标后，后续聊天不再使用它。也可以在 `/profile` 手动标记画像，并到 `/progress` 记录一次虚构选择和结果，刷新确认记录仍在。
 
+## Browser Use 本地网页查找（2026-10-13）
+
+`/chat` 默认正常聊天；用户主动选择“网页查找”后，现有模型入口参考本次任务、相关有效确认记忆（最多 5 条）、启用目标（最多 2 项）及已启用的背景与回答设置，制定有限的搜索计划。独立浏览器通过 Bing 查找不同网站的公开 HTTPS 学习资料，包括文档、课程介绍、教材、文章、论文介绍和开源项目，不再限定最初五个资料站。核对链接、标题和连续原文摘录后，最终整理最多 3 个资源。保留本地地址过滤和不登录、不提交表单、不上传或下载的限制。结果按普通助手消息保存，沿用“本次参考资料”和 JSON 备份；不会自动改写个人记忆或目标。
+
+从项目根目录打开两个 PowerShell 终端：
+
+```powershell
+# 终端一：本机 Python 环境已准备后启动浏览器执行服务
+.\scripts\start-browser-agent.ps1
+# 新机器首次启动用：.\scripts\start-browser-agent.ps1 -Install -PythonPath 'D:\python\python.exe'
+```
+
+```powershell
+# 终端二：启动知衡本地开发服务；首次获取项目先执行 npm.cmd ci
+. .\scripts\use-project-node.ps1
+npm.cmd run dev -- --port 3001
+```
+
+打开 `http://127.0.0.1:3001/chat`。Python 服务默认只监听 `127.0.0.1:8001`，复用根目录 `.env.local` 的 `LLM_API_KEY` 和 `LLM_MODEL`，无需新增 API Key；本地通信令牌由服务自动生成，仅 Next.js 服务端读取。依赖固定在 `browser-agent/requirements.lock`，无新增 npm 依赖。真实 AI 与 Agent 接口仍限本地开发，production 环境关闭。
+
+已用合成的确认记忆、启用目标与背景完成真实聊天检索、候选核对、整理及保存，刷新后回复与参考记录仍保留。放宽范围后，真实访问 MDN 中文站、核对 2 个候选，并通过聊天结果接口返回 1 个推荐。停止查找和禁止下载已实际核对；343 项 Node/TypeScript 测试、21 项 Python 测试通过。这不代表所有任务、网站或推荐结论都能保证成功。启动、取消、失败恢复、下载限制和实际验证见 [Browser Use 运行说明](browser-agent/README.md)及[集成记录](docs/browser-agent-integration.md)。独立探针命令保留用于排错。
+
 ## 10 月 24 日前的准备
 
 安排与操作稿见[路演准备](docs/contest-roadmap-2026-10-24.md)。14 日前完成 PPT 最终核对和提交准备，按主办要求在15日前提交；15日后固定这份 PPT，24日用于路演。后续只打磨现有功能、讲稿、录屏与彩排；20日冻结演示功能。合成检索案例不代表真实用户准确率，当前公开生产环境 AI 接口仍关闭。

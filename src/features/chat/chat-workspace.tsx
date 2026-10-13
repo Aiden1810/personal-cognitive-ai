@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { startTransition, useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, startTransition, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUpRight, Copy, Plus, X } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { getSavedConversation, useChatData } from "@/lib/chat/client";
@@ -26,6 +26,11 @@ import { selectChatContext } from "@/lib/chat/context";
 import { ChatSuggestionCard } from "./chat-suggestion-card";
 import { ChatReplyReferences } from "./chat-reply-references";
 import { createChatReferences, type ChatReferenceRecord } from "@/lib/chat/references";
+import { selectAgentContext } from "@/lib/agent/context";
+import { cancelAgentTask, requestAgentSummary, runAgentTask } from "@/lib/agent/api";
+import type { AgentRequest } from "@/types/agent";
+import { AgentTaskCard, type AgentRunView } from "./agent-task-card";
+import { AppError } from "@/lib/errors";
 
 export function ChatWorkspace() {
   const {
@@ -55,6 +60,8 @@ export function ChatWorkspace() {
   const { state: goalState, ready: goalReady, error: goalError, retryLoad: goalRetryLoad } = useGoalData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [replyMode, setReplyMode] = useState<"chat" | "web">("chat");
+  const [agentRuns, setAgentRuns] = useState<Record<string, AgentRunView>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<{ id: string; message: string } | null>(null);
   const [copyStatus, setCopyStatus] = useState<{ id: string; text: string } | null>(null);
@@ -72,6 +79,8 @@ export function ChatWorkspace() {
     phase: ContextRequestPhase;
   }>>({});
   const pendingRef = useRef(false);
+  const agentAbortRef = useRef<AbortController | null>(null);
+  const agentTaskIdRef = useRef<string | null>(null);
   const autoPendingRef = useRef(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
@@ -87,6 +96,16 @@ export function ChatWorkspace() {
     conversations[0] ??
     null;
   const latestContext = selected ? requestContexts[selected.id] : undefined;
+  const agentRun = selected ? agentRuns[selected.id] : undefined;
+
+  useEffect(() => {
+    function stopOnLeave() {
+      agentAbortRef.current?.abort();
+      if (agentTaskIdRef.current) void cancelAgentTask(agentTaskIdRef.current).catch(() => {});
+    }
+    window.addEventListener("pagehide", stopOnLeave);
+    return () => { window.removeEventListener("pagehide", stopOnLeave); stopOnLeave(); };
+  }, []);
 
   useEffect(() => {
     const area = messageAreaRef.current;
@@ -147,7 +166,7 @@ export function ChatWorkspace() {
     }
   }
 
-  async function fetchReply(id: string, messages: ChatMessage[]) {
+  async function fetchReply(id: string, messages: ChatMessage[], mode: "chat" | "web" = "chat", resume?: AgentRunView) {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPendingId(id);
@@ -163,23 +182,61 @@ export function ChatWorkspace() {
       let replyReferences: ChatReferenceRecord | undefined;
       const insights = usableProfileInsights(profileState?.insights ?? [], conversations);
       const goals = (goalState?.goals ?? []).filter((goal) => goal.status === "active");
-      const reply = await requestAssistantReply(messages, insights, goals, undefined, (selection) => {
+      function recordContext(selection: ChatContextSelection) {
         replyContext = selection;
         replyReferences = createChatReferences(selection, messageId);
         setRequestContexts((previous) => ({ ...previous, [id]: { messageId, selection, phase: "pending" } }));
-      }, preferences.state?.preferences, semanticEnabled, preferences.state?.personalContext);
+      }
+      let reply: string;
+      if (mode === "web") {
+        const selection = resume?.selection ?? selectAgentContext(messages.at(-1)!.content, insights, goals, preferences.state?.preferences, preferences.state?.personalContext);
+        recordContext(selection);
+        const input: AgentRequest = resume?.input ?? { requestId: crypto.randomUUID(), task: messages.at(-1)!.content,
+          insights: selection.insights, goals: selection.goals,
+          ...(selection.preferences ? { preferences: selection.preferences } : {}),
+          ...(selection.personalContext ? { personalContext: selection.personalContext } : {}) };
+        const controller = new AbortController();
+        agentAbortRef.current = controller;
+        agentTaskIdRef.current = input.requestId;
+        setAgentRuns((previous) => ({ ...previous, [id]: { messageId, input, selection, phase: resume ? "summarizing" : "planning", ...(resume?.job ? { job: resume.job } : {}) } }));
+        if (resume?.job?.status === "completed") {
+          reply = await requestAgentSummary(input, controller.signal);
+          controller.signal.throwIfAborted();
+          setAgentRuns((previous) => ({ ...previous, [id]: { ...previous[id], phase: "completed" } }));
+        } else {
+          const result = await runAgentTask(input, (progress) => {
+            setAgentRuns((previous) => previous[id]?.input.requestId === input.requestId
+              ? { ...previous, [id]: { ...previous[id], ...progress } } : previous);
+          }, controller.signal);
+          reply = result.reply;
+        }
+        controller.signal.throwIfAborted();
+      } else {
+        reply = await requestAssistantReply(messages, insights, goals, undefined, recordContext,
+          preferences.state?.preferences, semanticEnabled, preferences.state?.personalContext);
+      }
       const savedReply = appendMessage(id, "assistant", reply, replyReferences);
       if (!savedReply) throw new Error("AI 回复未能保存，请检查浏览器存储后重试。");
       markContext("complete");
-      void checkSuggestions(id, savedReply, messages, replyContext);
-      void runAutoExtraction(id);
+      if (mode === "chat") {
+        void checkSuggestions(id, savedReply, messages, replyContext);
+        void runAutoExtraction(id);
+      }
     } catch (failure) {
       markContext("failed");
+      const cancelled = failure instanceof DOMException && failure.name === "AbortError";
+      if (mode === "web") setAgentRuns((previous) => previous[id]
+        ? { ...previous, [id]: { ...previous[id], phase: cancelled ? "cancelled" : "failed",
+          ...(failure instanceof AppError && failure.code === "NOT_FOUND" ? { job: undefined } : {}),
+          ...(cancelled ? {} : { error: failure instanceof Error ? failure.message : "网页查找失败。" }) } } : previous);
+      if (cancelled) return;
       setReplyError({
         id,
         message: failure instanceof Error ? failure.message : "AI 回复失败，请稍后重试。",
       });
     } finally {
+      agentAbortRef.current = null;
+      agentTaskIdRef.current = null;
       pendingRef.current = false;
       setPendingId(null);
     }
@@ -187,7 +244,7 @@ export function ChatWorkspace() {
 
   function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.trim() || pendingRef.current || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error) return;
+    if (!draft.trim() || replyMode === "web" && draft.trim().length > 2000 || pendingRef.current || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error) return;
     let id = selected?.id;
     let history = selected?.messages ?? [];
     if (!id) {
@@ -200,12 +257,26 @@ export function ChatWorkspace() {
     const saved = appendMessage(id, "user", draft);
     if (!saved) return;
     setDraft("");
-    void fetchReply(id, [...history, saved]);
+    void fetchReply(id, [...history, saved], replyMode);
   }
 
   function retryReply() {
     if (!selected || pendingRef.current || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error) return;
-    void fetchReply(selected.id, selected.messages);
+    const previousRun = agentRun?.messageId === selected.messages.at(-1)?.id ? agentRun : undefined;
+    void fetchReply(selected.id, selected.messages, previousRun ? "web" : "chat", previousRun?.job?.status === "completed" ? previousRun : undefined);
+  }
+
+  function stopAgent() {
+    if (!selected || !agentRun) return;
+    setAgentRuns((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], phase: "cancelling" } }));
+    if (agentAbortRef.current) { agentAbortRef.current.abort(); return; }
+    pendingRef.current = true;
+    setPendingId(selected.id);
+    void cancelAgentTask(agentRun.input.requestId).then(() => {
+      setAgentRuns((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], phase: "cancelled", error: undefined } }));
+    }).catch((failure) => {
+      setAgentRuns((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], phase: "failed", error: failure instanceof Error ? failure.message : "停止未确认。" } }));
+    }).finally(() => { pendingRef.current = false; setPendingId(null); });
   }
 
   async function copyReply(message: ChatMessage) {
@@ -402,7 +473,7 @@ export function ChatWorkspace() {
             ) : (
               selected.messages.map((message, index) => {
                 return (
-                  <div className={`chat-message ${message.role}`} key={message.id}>
+                  <Fragment key={message.id}><div className={`chat-message ${message.role}`}>
                     <span className="chat-message-role" aria-hidden="true">
                       {message.role === "user" ? "你" : <Image src="/icon.svg" alt="" width={30} height={30} />}
                     </span>
@@ -433,16 +504,16 @@ export function ChatWorkspace() {
                         </button>
                       )}
                     </div>
-                  </div>
+                  </div>{agentRun?.messageId === message.id && <AgentTaskCard run={agentRun} onCancel={stopAgent} />}</Fragment>
                 );
               })
             )}
           </div>
         </div>
-        {pendingId === selected?.id && <p className="chat-pending" role="status"><span className="chat-availability-dot" />知衡正在思考…</p>}
+        {pendingId === selected?.id && !(agentRun && ["planning", "browsing", "summarizing", "cancelling"].includes(agentRun.phase)) && <p className="chat-pending" role="status"><span className="chat-availability-dot" />知衡正在思考…</p>}
         {selected?.messages.at(-1)?.role === "user" && !pendingId && !error && (
           <button type="button" className="text-button chat-retry-button" onClick={retryReply} disabled={!profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error}>
-            重试回复
+            {agentRun && agentRun.messageId === selected.messages.at(-1)?.id ? agentRun.job?.status === "completed" ? "重新整理已获取结果" : "重新查找" : "重试回复"}
           </button>
         )}
         {pendingMemories > 0 && <aside className="chat-review-cue" aria-label="待审核记忆">
@@ -450,6 +521,11 @@ export function ChatWorkspace() {
           <Link className="icon-link" href="/profile#pending-memories">去审核<ArrowUpRight size={15} aria-hidden="true" /></Link>
         </aside>}
         <form className="chat-composer" onSubmit={sendMessage} aria-busy={!!pendingId}>
+          <div className="chat-mode-control" role="group" aria-label="本次发送方式">
+            <button type="button" aria-pressed={replyMode === "chat"} disabled={!!pendingId} onClick={() => setReplyMode("chat")}>聊天</button>
+            <button type="button" aria-pressed={replyMode === "web"} disabled={!!pendingId} onClick={() => setReplyMode("web")}>网页查找</button>
+          </div>
+          {replyMode === "web" && <p className="agent-use-note">将本次任务、相关确认记忆、启用目标和个人设置交给模型制定计划，再由独立浏览器查找不同网站的公开学习资料。可阅读文档、课程介绍、文章和项目页面；不登录、提交表单或下载文件，结果不自动成为个人记忆。</p>}
           <label htmlFor="chat-draft" className="sr-only">继续对话</label>
           <div className="chat-composer-box">
             <textarea
@@ -463,12 +539,12 @@ export function ChatWorkspace() {
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder="写下想和知衡讨论的事…"
+              placeholder={replyMode === "web" ? "写下想查找的资料及要求…" : "写下想和知衡讨论的事…"}
               disabled={!ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error || !!pendingId}
-              maxLength={10000}
+              maxLength={replyMode === "web" ? 2000 : 10000}
             />
-            <button type="submit" aria-busy={!!pendingId} disabled={!draft.trim() || !ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error || !!pendingId}>
-              {pendingId ? "等待回复" : "发送"}
+            <button type="submit" aria-busy={!!pendingId} disabled={!draft.trim() || replyMode === "web" && draft.trim().length > 2000 || !ready || !!error || !profileReady || !!profileError || !goalReady || !!goalError || !preferences.ready || !!preferences.error || !!pendingId}>
+              {pendingId ? replyMode === "web" ? "正在查找" : "等待回复" : replyMode === "web" ? "开始查找" : "发送"}
             </button>
           </div>
           <div className="chat-composer-note">

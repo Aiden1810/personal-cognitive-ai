@@ -27,3 +27,8 @@ Thumbs.db
 private-data/
 .playwright-cli/
 output/
+
+# Independent Browser Use runtime
+browser-agent/.venv/
+browser-agent/__pycache__/
+browser-agent/**/__pycache__/
